@@ -1,0 +1,21 @@
+{
+  "id": "./",
+  "name": "TKB Studio – Hình nền thời khoá biểu",
+  "short_name": "TKB Studio",
+  "description": "Tạo hình nền thời khoá biểu đẹp cho điện thoại, máy tính bảng và laptop. Chạy cả khi không có mạng.",
+  "lang": "vi",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#F4EFE4",
+  "background_color": "#F4EFE4",
+  "categories": ["education", "productivity", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

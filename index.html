@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TKB Studio – Tạo hình nền thời khoá biểu</title>
+<meta name="description" content="TKB Studio: nhập thời khoá biểu và tạo hình nền đẹp cho điện thoại, máy tính bảng, laptop hoặc in giấy. Miễn phí, chạy ngay trên trình duyệt.">
+<meta name="theme-color" content="#F4EFE4">
+<meta name="color-scheme" content="light">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="TKB Studio">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="format-detection" content="telephone=no">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;800&amp;family=Be+Vietnam+Pro:wght@400;500;600;700&amp;family=Fraunces:ital,opsz,wght@1,9..144,600&amp;display=swap">
+<script>try{document.documentElement.setAttribute('data-mode',localStorage.getItem('tkb.mode')==='adv'?'adv':'basic')}catch(e){document.documentElement.setAttribute('data-mode','basic')}</script>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<noscript><div class="noscript">TKB Studio cần JavaScript để hoạt động. Vui lòng bật JavaScript trong trình duyệt rồi tải lại trang.</div></noscript>
+
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">
+      <img class="logo" src="icon.svg" alt="" width="40" height="40">
+      <h1 class="brand-name">TKB<em>studio</em></h1>
+    </div>
+    <div class="mode" role="radiogroup" aria-label="Chế độ chỉnh sửa">
+      <span class="mode-thumb" aria-hidden="true"></span>
+      <button type="button" role="radio" data-set-mode="basic" aria-checked="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4l1.7 4.3L18 10l-4.3 1.7L12 16l-1.7-4.3L6 10l4.3-1.7z"/></svg><span>Cơ bản</span>
+      </button>
+      <button type="button" role="radio" data-set-mode="adv" aria-checked="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg><span>Nâng cao</span>
+      </button>
+    </div>
+    <button type="button" class="btn btn-ghost btn-icon" id="install" aria-label="Cài ứng dụng" title="Cài TKB Studio như một ứng dụng" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M12 7.5v7M9 11.5l3 3 3-3"/></svg>
+    </button>
+    <button type="button" class="btn btn-ghost btn-icon" id="undo" aria-label="Hoàn tác" title="Hoàn tác (Ctrl+Z)" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.500a5.500 5.500 0 010 11H11"/></svg>
+    </button>
+    <button type="button" class="btn btn-ghost btn-icon" id="redo" aria-label="Làm lại" title="Làm lại (Ctrl+Shift+Z)" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.500a5.500 5.500 0 000 11H13"/></svg>
+    </button>
+    <button type="button" class="btn btn-primary" id="dl">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11"/><path d="M7 11l5 5 5-5"/><path d="M5 20h14"/></svg>
+      <span>Tải ảnh</span>
+    </button>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Xem trước hình nền">
+    <div class="frame" id="frame">
+      <span class="tape" aria-hidden="true"></span>
+      <div class="screen" id="screen">
+        <canvas id="cv" aria-label="Xem trước thời khoá biểu"></canvas>
+        <div class="guides" id="guides" aria-hidden="true" hidden></div>
+        <div class="snap snap-v" id="snapv" aria-hidden="true"></div>
+        <div class="snap snap-h" id="snaph" aria-hidden="true"></div>
+        <div class="dragbox" id="dragbox" tabindex="0" role="application" aria-label="Khối thời khoá biểu. Kéo hoặc dùng phím mũi tên để di chuyển, giữ Shift để di chuyển nhanh." hidden></div>
+      </div>
+    </div>
+    <p class="stage-info" id="info" aria-live="polite"></p>
+    <div class="stage-tools">
+      <button type="button" class="btn btn-sm btn-icon" id="bigbtn" aria-pressed="false" aria-label="Phóng to bản xem trước" title="Phóng to / thu nhỏ bản xem trước">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+      <button type="button" class="btn btn-sm btn-icon" id="guidebtn" aria-pressed="false" aria-label="Bật tắt đường gợi ý bố cục" title="Đường gợi ý bố cục">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h16M4 15h16M9 4v16M15 4v16"/></svg>
+      </button>
+    </div>
+  </section>
+
+  <nav class="rail" id="rail" role="tablist" aria-label="Các mục chỉnh sửa" aria-orientation="horizontal"></nav>
+  <main class="panels" id="panels"></main>
+</div>
+
+<div class="toasts" id="toasts" role="status" aria-live="polite"></div>
+
+<script src="js/devices.js"></script>
+<script src="js/patterns.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/fonts.js"></script>
+<script src="js/presets.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/render.js"></script>
+<script src="js/export.js"></script>
+<script src="js/ui-core.js"></script>
+<script src="js/ui-data.js"></script>
+<script src="js/ui-style.js"></script>
+<script src="js/ui-bg-place.js"></script>
+<script src="js/ui-look.js"></script>
+<script src="js/ui-library.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>
