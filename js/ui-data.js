@@ -403,14 +403,34 @@
       });
       aiLoad();
 
-      var sample = h('button', { type: 'button', class: 'btn btn-ghost' }, ['Nạp lịch mẫu']);
-      sample.addEventListener('click', function () {
-        TKB.ui.confirm('Thay toàn bộ lịch hiện tại bằng lịch mẫu?').then(function (ok) {
-          if (!ok) return;
-          var d = JSON.parse(JSON.stringify(TKB.storage.defaultConfig().data));
-          upd(function (c) { c.data = d; });
-          TKB.ui.toast('Đã nạp lịch mẫu', 'ok');
-        });
+      // export / import only the schedule (data), as a small .json file
+      var expBtn = h('button', { type: 'button', class: 'btn' }, ['Xuất lịch ra file']);
+      var impBtn = h('button', { type: 'button', class: 'btn btn-ghost' }, ['Nạp lịch từ file']);
+      var impIn = h('input', { type: 'file', accept: '.json,application/json', hidden: 'hidden' });
+      expBtn.addEventListener('click', function () {
+        var d = cfg().data, txt = JSON.stringify({ tkbLich: 1, data: d }, null, 2);
+        var a = document.createElement('a'), url = URL.createObjectURL(new Blob([txt], { type: 'application/json' }));
+        a.href = url; a.download = (TKB.dom.slug(d.title || 'lich') || 'lich') + '.lich.json';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+        TKB.ui.toast('Đã xuất lịch', 'ok');
+      });
+      impBtn.addEventListener('click', function () { impIn.click(); });
+      impIn.addEventListener('change', function () {
+        var f = impIn.files && impIn.files[0]; impIn.value = '';
+        if (!f) return;
+        f.text().then(function (t) {
+          var j = JSON.parse(t), raw = j && (j.data || (j.sessions ? j : null));
+          if (!raw || !Array.isArray(raw.sessions)) throw new Error('bad');
+          // reuse the config normaliser so a hand-edited file can't break the app
+          var full = JSON.parse(JSON.stringify(cfg())); full.data = raw;
+          var d = TKB.storage.normalize(full).data;
+          return TKB.ui.confirm('Thay lịch hiện tại bằng lịch trong file "' + f.name + '"?').then(function (ok) {
+            if (!ok) return;
+            upd(function (c) { c.data = d; }, 'lich-import');
+            TKB.ui.toast('Đã nạp lịch từ file — bấm Hoàn tác nếu sai', 'ok');
+          });
+        }).catch(function () { TKB.ui.toast('File không phải lịch TKB hợp lệ (.lich.json hoặc .tkb.json).', 'error'); });
       });
 
       root.appendChild(h('div', { class: 'stack p-data-root' }, [
@@ -425,7 +445,7 @@
           h('p', { class: 'hint' }, ['Chạm vào một ô rồi chọn môn. Có thể dán từ Excel hoặc Google Sheets vào ô đầu tiên.']),
           subj
         ]),
-        h('div', { class: 'row' }, [sample])
+        h('div', { class: 'row' }, [expBtn, impBtn, impIn])
       ]));
 
       TKB.ui.on('change', sync);

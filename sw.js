@@ -1,5 +1,5 @@
 /* TKB Studio service worker. Bump VERSION on every release. */
-var VERSION = 'tkb-v15';
+var VERSION = 'tkb-v16';
 var FONTS = 'tkb-fonts-v1';
 var FILES = ['./', 'index.html', 'css/app.css', 'manifest.webmanifest', 'icon.svg',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
