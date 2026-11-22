@@ -243,6 +243,7 @@ function runJobs(jobs) { return function (ctx) { for (var i = 0; i < jobs.length
 
 /* day label with head style (filled | pill | underline); plain forces underline */
 function head(E, ctx, x, y, w, h, label, sc, surface, plain) {
+  if (!clean(label)) return; // ghost column
   var u = E.u, st = plain ? 'underline' : (E.look.headStyle || 'filled'), filled = st !== 'underline', fg;
   var txt = E.txt(label);
   if (filled) {
@@ -323,7 +324,7 @@ function sessLabel(E, text, si, w, onPanel) {
 
 /* one session table (grid and plain share it) */
 function tableSession(E, s, si, iw, plain) {
-  var u = E.u, g = E.g, fs = E.fs, ctx = E.ctx, P = E.P(s), days = s.days || [], nd = Math.max(1, days.length);
+  var u = E.u, g = E.g, fs = E.fs, ctx = E.ctx, P = E.P(s), days = daysOf(E, si, true), nd = Math.max(1, days.length);
   var ti = E.times(s), hasNum = !!E.look.showPeriodNumbers, hasT = !!ti, sc = E.sc(si);
   var nfs = fs * 0.9, tfs = fs * 0.5, pcw = 0;
   if (hasNum || hasT) {
@@ -357,7 +358,7 @@ function tableSession(E, s, si, iw, plain) {
           }
         }
         for (d = 0; d < days.length; d++) {
-          pill(E, ctx, ox + x0 + d * (colW + g), y, colW, ch, cellR, (days[d].cells || [])[p], si, { plain: plain });
+          if (!days[d].ghost) pill(E, ctx, ox + x0 + d * (colW + g), y, colW, ch, cellR, (days[d].cells || [])[p], si, { plain: plain });
         }
       }
     }
@@ -409,6 +410,16 @@ function dayCols(E, si, w, gap) {
     return { day: d, d: all.indexOf(d), x: x0 + slots.indexOf(clean(d.label).toLowerCase()) * (cw + gap), cw: cw };
   });
 }
+/* day list for table-like layouts: empty days hidden; with dayFit 'align' (and align allowed) the missing
+   weekdays become blank ghost columns so every weekday keeps the same column in both sessions */
+function daysOf(E, si, alignOK) {
+  var cols = dayCols(E, si, 1000, 0), out = cols.map(function (c) { return c.day; });
+  if (!alignOK || E.look.dayFit !== 'align' || (E.data.sessions || []).length < 2 || !cols.length) return out;
+  var cw = cols[0].cw, n = Math.round(1000 / cw), res = [];
+  for (var i = 0; i < n; i++) res.push({ label: '', cells: [], ghost: true });
+  cols.forEach(function (c) { res[Math.round(c.x / cw)] = c.day; });
+  return res;
+}
 LAY.cards = function (E) {
   var u = E.u, w = E.layoutW, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
   var tb = titleBlock(E, w, 'center', false);
@@ -442,7 +453,7 @@ LAY.rows = function (E) {
   ss.forEach(function (s, si) {
     if (si > 0) y += E.sg;
     if (multi) { var sl = sessLabel(E, s.label, si, w, false); add(jobs, sl, 0, y); y += sl.h + 4 * u; }
-    var P = E.P(s), ti = E.times(s), days = s.days || [], hasNum = !!E.look.showPeriodNumbers;
+    var P = E.P(s), ti = E.times(s), days = daysOf(E, si, false), hasNum = !!E.look.showPeriodNumbers;
     var ip = 8 * u, chH = E.fs * 1.3 + 14 * u, sh = chH + 2 * ip, g2 = Math.max(E.g, 5 * u), m = 0;
     ctx0.font = E.fontT(E.dfs);
     days.forEach(function (d) { m = Math.max(m, ctx0.measureText(E.txt(d.label)).width); });
@@ -657,7 +668,7 @@ function ruled(E, swiss) {
   else { jobs.push(function (cx) { box(cx, pad, y1, iw, 3.5 * u, 0, c.ink, null, 0); box(cx, pad, y1 + 7 * u, iw, 1.2 * u, 0, c.ink, null, 0); }); y += 8.2 * u + 22 * u; }
   ss.forEach(function (s, si) {
     if (si > 0) y += E.sg + 6 * u;
-    var P = E.P(s), days = s.days || [], nd = Math.max(1, days.length), ti = E.times(s), hasNum = !!E.look.showPeriodNumbers;
+    var P = E.P(s), days = daysOf(E, si, true), nd = Math.max(1, days.length), ti = E.times(s), hasNum = !!E.look.showPeriodNumbers;
     if (multi) {
       var lfs = E.lfs * 0.82, ly = y;
       jobs.push(function (cx) {
@@ -677,6 +688,7 @@ function ruled(E, swiss) {
     var rh = Math.max(E.fs * 1.3 + (swiss ? 24 : 22) * u, stackH + 14 * u), hy = y;
     jobs.push(function (cx) {
       days.forEach(function (d, di) {
+        if (d.ghost) return;
         var x = pad + pcw + di * colW + 6 * u, cwid = colW - 10 * u;
         if (swiss) {
           var dn = dayNum(E.txt(d.label)), bf = fitLines(cx, dn.big, E.fontT, bfs, cwid);

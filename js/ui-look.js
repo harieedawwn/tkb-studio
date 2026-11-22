@@ -164,7 +164,7 @@
     });
 
     head('Hiển thị');
-    add(seg('Cột ngày (Thẻ, Giấy nhớ)', [['stretch', 'Tự giãn'], ['align', 'Thẳng cột theo thứ']], function (c) { return c.look.dayFit || 'stretch'; }, function (c, v) { c.look.dayFit = v; }));
+    add(seg('Cột ngày', [['stretch', 'Tự giãn'], ['align', 'Thẳng cột theo thứ']], function (c) { return c.look.dayFit || 'stretch'; }, function (c, v) { c.look.dayFit = v; }));
     [['showTitle', 'Hiện tiêu đề'], ['showTimes', 'Hiện giờ học'], ['showPeriodNumbers', 'Hiện số tiết'], ['upper', 'Chữ IN HOA']].forEach(function (s) {
       add(sw(s[1], function (c) { return c.look[s[0]]; }, function (c, v) { c.look[s[0]] = v; }));
     });
