@@ -149,7 +149,7 @@
         pattern: { id: 'dots', color: '#CFD8B6', scale: 1.2 },
         image: { ref: null, zoom: 1, x: 0.5, y: 0.5, blur: 0, dim: 0, brightness: 1, gray: false }
       },
-      place: { cx: 0.5, cy: 0.56, width: 0.9, zoom: 1 }
+      place: { cx: 0.5, cy: 0.56, width: 0.9, zoom: 1, preset: 'm' }
     };
   }
 
@@ -298,8 +298,9 @@
     var place = {
       cx: num(rpl.cx, d.place.cx, 0, 1),
       cy: num(rpl.cy, d.place.cy, 0, 1),
-      width: num(rpl.width, d.place.width, 0.3, 1),
-      zoom: num(rpl.zoom, 1, 0.3, 3)
+      width: num(rpl.width, d.place.width, 0.12, 1),
+      zoom: num(rpl.zoom, 1, 0.25, 3),
+      preset: ['mini', 's', 'm', 'l'].indexOf(rpl.preset) >= 0 ? rpl.preset : null // old configs: keep their numbers
     };
 
     return { v: 1, name: name, size: size, data: data, look: look, bg: bg, place: place };

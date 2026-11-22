@@ -145,8 +145,10 @@ function drawLines(E, ctx, lines, x, cy, size, font, color, align, eff) {
   var lh = size * 1.3, y0 = cy - (lines.length - 1) * lh / 2 + size * 0.35;
   for (var i = 0; i < lines.length; i++) putText(E, ctx, lines[i], x, y0 + i * lh, size, font, color, align, eff);
 }
+var clipCount = 0; // text cut by ellipsize since the last reset (read by measure/paint)
 function ellipsize(ctx, t, maxW) {
   var a = Array.from(t);
+  clipCount++;
   while (a.length > 1 && ctx.measureText(a.join('') + '\u2026').width > maxW) a.pop();
   return a.join('') + '\u2026';
 }
@@ -184,16 +186,16 @@ function fitLines(ctx, str, fontFn, base, maxW) {
 }
 
 /* ---------- environment shared by layouts ---------- */
-function makeEnv(ctx, cfg, W, H, avg) {
-  var look = cfg.look || {}, data = cfg.data || { sessions: [] }, c = colorsOf(cfg), u = W / 1080;
+function makeEnv(ctx, cfg, W, H, avg, layoutW, sc) {
+  var look = cfg.look || {}, data = cfg.data || { sessions: [] }, c = colorsOf(cfg), u = Math.min(W, H) / 1080;
   var ts = num(look.textScale, 1, 0.7, 1.4), f = look.fonts || {};
   var famT = f.title || 'Be Vietnam Pro', famB = f.body || famT;
   var wT = weightOf(famT, f.titleWeight || 800), wB = weightOf(famB, f.bodyWeight || 600);
   var stT = stackOf(famT), stB = stackOf(famB), acc = c.accents, map = subjectMap(cfg, acc);
   var E = {
-    ctx: ctx, cfg: cfg, look: look, data: data, c: c, W: W, H: H, u: u, ts: ts, s: 1,
+    ctx: ctx, cfg: cfg, look: look, data: data, c: c, W: W, H: H, u: u, ts: ts, s: sc || 1,
     r: num(look.radius, 14, 0, 32) * u, g: num(look.gap, 8, 0, 24) * u, bwid: num(look.borderWidth, 2, 0, 6) * u,
-    bw: num((cfg.place || {}).width, 0.92, 0.3, 1) * W,
+    layoutW: layoutW || W,
     fs: 30 * u * ts, dfs: 27 * u * ts, lfs: 22 * u * ts, tfs: 66 * u * ts, sfs: 28 * u * ts,
     pad: 22 * u, sg: 26 * u, tg: 22 * u,
     alpha: num(look.panelOpacity, 0.92, 0, 1), blur: num(look.panelBlur, 0, 0, 30) * u,
@@ -230,7 +232,7 @@ function makeEnv(ctx, cfg, W, H, avg) {
     return { fill: fill, fg: pick(fill, [c.ink, c.panel, c.bg]), line: false };
   };
   E.panel = function (x, y, w, h, extra) {
-    var p = { x: x, y: y, w: w, h: h, r: E.r, fill: c.panel, alpha: E.alpha, bc: E.bc, bw: E.bwid, rot: 0 };
+    var p = { x: x, y: y, w: w, h: h, r: E.r, fill: c.panel, alpha: E.alpha, bc: E.bc, bw: E.layoutWid, rot: 0 };
     if (extra) for (var k in extra) p[k] = extra[k];
     return p;
   };
@@ -244,7 +246,7 @@ function head(E, ctx, x, y, w, h, label, sc, surface, plain) {
   var u = E.u, st = plain ? 'underline' : (E.look.headStyle || 'filled'), filled = st !== 'underline', fg;
   var txt = E.txt(label);
   if (filled) {
-    box(ctx, x, y, w, h, st === 'pill' ? h / 2 : Math.min(E.r * 0.7, h / 2), sc, E.bc, E.bwid * 0.75);
+    box(ctx, x, y, w, h, st === 'pill' ? h / 2 : Math.min(E.r * 0.7, h / 2), sc, E.bc, E.layoutWid * 0.75);
     fg = HEX.test((E.look.colors || {}).headInk || '') ? E.c.headInk : pick(sc, [E.c.headInk, E.c.ink, E.c.panel]);
   } else fg = plain ? E.inkBg : pick(surface, [E.c.ink]);
   var f = fitLines(ctx, txt, E.fontT, E.dfs, w - 12 * u);
@@ -268,7 +270,7 @@ function pill(E, ctx, x, y, w, h, r, raw, si, o) {
   }
   var f = E.fillFor(raw, si), fg = f.fg;
   if (o.plain) fg = E.inkBg;
-  else box(ctx, x, y, w, h, r, f.fill, E.bc, f.line ? Math.max(E.bwid * 0.75, 1.5 * u) : E.bwid * 0.75);
+  else box(ctx, x, y, w, h, r, f.fill, E.bc, f.line ? Math.max(E.layoutWid * 0.75, 1.5 * u) : E.layoutWid * 0.75);
   if (o.num) {
     drawLines(E, ctx, [o.num], x + 10 * u, y + h / 2, E.fs * 0.62, E.fontT(E.fs * 0.62), fg, 'left', false);
     left = o.numW || 0;
@@ -366,7 +368,7 @@ function tableSession(E, s, si, iw, plain) {
 var LAY = {};
 
 LAY.grid = function (E) {
-  var jobs = [], pad = E.pad, iw = E.bw - 2 * pad, y = pad, ss = E.data.sessions || [], multi = ss.length > 1;
+  var jobs = [], pad = E.pad, iw = E.layoutW - 2 * pad, y = pad, ss = E.data.sessions || [], multi = ss.length > 1;
   var tb = titleBlock(E, iw, 'left', true);
   if (tb) { add(jobs, tb, pad, y); y += tb.h + E.tg; }
   ss.forEach(function (s, si) {
@@ -375,10 +377,10 @@ LAY.grid = function (E) {
     var ts = tableSession(E, s, si, iw, false); add(jobs, ts, pad, y); y += ts.h;
   });
   y += pad;
-  return { w: E.bw, h: Math.max(y, 1), panels: [E.panel(0, 0, E.bw, y)], draw: runJobs(jobs) };
+  return { w: E.layoutW, h: Math.max(y, 1), panels: [E.panel(0, 0, E.layoutW, y)], draw: runJobs(jobs) };
 };
 LAY.plain = function (E) {
-  var jobs = [], w = E.bw, y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
+  var jobs = [], w = E.layoutW, y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
   var tb = titleBlock(E, w, 'center', false);
   if (tb) { add(jobs, tb, 0, y); y += tb.h + E.tg; }
   ss.forEach(function (s, si) {
@@ -390,7 +392,7 @@ LAY.plain = function (E) {
 };
 
 LAY.cards = function (E) {
-  var u = E.u, w = E.bw, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
+  var u = E.u, w = E.layoutW, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
   var tb = titleBlock(E, w, 'center', false);
   if (tb) { add(jobs, tb, 0, y); y += tb.h + E.tg; }
   ss.forEach(function (s, si) {
@@ -417,7 +419,7 @@ LAY.cards = function (E) {
   return { w: w, h: Math.max(y, 1), panels: panels, draw: runJobs(jobs) };
 };
 LAY.rows = function (E) {
-  var u = E.u, w = E.bw, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1, ctx0 = E.ctx;
+  var u = E.u, w = E.layoutW, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1, ctx0 = E.ctx;
   var tb = titleBlock(E, w, 'left', false);
   if (tb) { add(jobs, tb, 0, y); y += tb.h + E.tg; }
   ss.forEach(function (s, si) {
@@ -458,7 +460,7 @@ LAY.rows = function (E) {
 };
 
 LAY.notes = function (E) {
-  var u = E.u, w = E.bw, jobs = [], panels = [], y = 12 * u, ss = E.data.sessions || [], multi = ss.length > 1, ctx0 = E.ctx;
+  var u = E.u, w = E.layoutW, jobs = [], panels = [], y = 12 * u, ss = E.data.sessions || [], multi = ss.length > 1, ctx0 = E.ctx;
   var tb = titleBlock(E, w, 'center', false);
   if (tb) { add(jobs, tb, 0, y); y += tb.h + E.tg; }
   var title = clean(E.data.title);
@@ -521,7 +523,7 @@ function mergedDays(E) {
   });
   return out;
 }
-function colsFor(E, n) { return E.W > E.H ? Math.min(n, 3) : (n > 3 ? 2 : 1); }
+function colsFor(E, n) { var lu = E.layoutW / E.u; return Math.min(n, lu >= 1500 ? 3 : (lu >= 900 ? 2 : 1)); }
 function dayNum(label) {
   var t = clean(label), m = t.match(/\d+/);
   if (m) return { big: (m[0].length < 2 ? '0' : '') + m[0], small: t.replace(m[0], '').trim() };
@@ -531,7 +533,7 @@ function dayNum(label) {
 
 /* day cards in 2-3 columns: kind 'planner' (white pages, colour bars) or 'bento' (colour-blocked tiles) */
 function dayGrid(E, kind) {
-  var u = E.u, w = E.bw, ctx = E.ctx, c = E.c, jobs = [], panels = [], y = 0, bento = kind === 'bento';
+  var u = E.u, w = E.layoutW, ctx = E.ctx, c = E.c, jobs = [], panels = [], y = 0, bento = kind === 'bento';
   var mode = E.look.subjectColors || 'auto', showNum = !!E.look.showPeriodNumbers, multi = (E.data.sessions || []).length > 1;
   var gc = Math.max(E.gm, (bento ? 14 : 18) * u), rad = bento ? E.r * 1.3 + 6 * u : E.r;
   if (bento) {
@@ -630,7 +632,7 @@ LAY.bento = function (E) { return dayGrid(E, 'bento'); };
 
 /* ruled table on one sheet: editorial (hairlines, serif feel) or swiss (bold numbers, thick rules) */
 function ruled(E, swiss) {
-  var u = E.u, w = E.bw, ctx = E.ctx, c = E.c, jobs = [], pad = (swiss ? 34 : 42) * u, iw = w - 2 * pad, y = pad;
+  var u = E.u, w = E.layoutW, ctx = E.ctx, c = E.c, jobs = [], pad = (swiss ? 34 : 42) * u, iw = w - 2 * pad, y = pad;
   var ss = E.data.sessions || [], multi = ss.length > 1, mode = E.look.subjectColors || 'auto';
   var tb = titleBlock(E, iw, 'left', true);
   if (tb) { add(jobs, tb, pad, y); y += tb.h + 16 * u; }
@@ -716,7 +718,7 @@ LAY.swiss = function (E) { return ruled(E, true); };
 
 /* centred text only: day label, then subjects joined by dots */
 LAY.mono = function (E) {
-  var u = E.u, w = E.bw, ctx = E.ctx, jobs = [], y = 0;
+  var u = E.u, w = E.layoutW, ctx = E.ctx, jobs = [], y = 0;
   E.tfs *= 1.3; E.sfs *= 1.1; // text is the whole design here, so it gets more room
   var tb = titleBlock(E, w, 'center', false);
   if (tb) { add(jobs, tb, 0, y); y += tb.h + E.tg * 1.8; }
@@ -835,8 +837,8 @@ function paintPanels(ctx, E, lay, canvas) {
   if (snap) {
     ctx.save(); ctx.beginPath(); P.forEach(function (p) { addShape(ctx, p, 0, 0, 0); }); ctx.clip();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (HAS_FILTER) { ctx.filter = 'blur(' + E.blur.toFixed(2) + 'px)'; ctx.drawImage(snap, 0, 0); }
-    else ctx.drawImage(softBlur(snap, E.blur), 0, 0);
+    if (HAS_FILTER) { ctx.filter = 'blur(' + (E.blur * E.s).toFixed(2) + 'px)'; ctx.drawImage(snap, 0, 0); }
+    else ctx.drawImage(softBlur(snap, E.blur * E.s), 0, 0);
     ctx.restore();
   }
   P.forEach(function (p) {
@@ -849,15 +851,32 @@ function paintPanels(ctx, E, lay, canvas) {
   });
 }
 
-/* ---------- placement ---------- */
-function placement(cfg, lay, W, H) {
-  var z = num((cfg.place || {}).zoom, 1, 0.3, 3);
-  var s = Math.min(z, 0.96 * H / lay.h, 0.96 * W / lay.w);
-  var w = lay.w * s, h = lay.h * s, mx = 0.02 * W, my = 0.02 * H, p = cfg.place || {};
+/* ---------- size & placement ---------- */
+// preset size: block width is a share of the screen's usable short side, content zoom is fixed
+// h = tallest share of the screen height the block may take (mini must stay a small corner widget)
+var SIZE_PRESETS = { mini: { k: 0.45, z: 0.55, h: 0.48 }, s: { k: 0.74, z: 0.85, h: 0.96 }, m: { k: 0.86, z: 1, h: 0.96 }, l: { k: 0.96, z: 1.1, h: 0.96 } };
+var MINW = 420; // narrowest layout width (in u) that still fits the text without cutting it
+function sizeOf(cfg, W, H) {
+  var p = cfg.place || {}, pr = SIZE_PRESETS[p.preset];
+  if (pr) { var ref = Math.min(W, 0.9 * H); return { width: Math.min(1, pr.k * ref / W), zoom: pr.z, hmax: pr.h, preset: p.preset }; }
+  return { width: num(p.width, 0.92, 0.12, 1), zoom: num(p.zoom, 1, 0.25, 3), hmax: 0.96, preset: null };
+}
+// build the layout at the largest content scale s that keeps width*W and 96% of the height
+function solve(ctx, cfg, W, H, avg) {
+  var sz = sizeOf(cfg, W, H), u = Math.min(W, H) / 1080, s = sz.zoom, E, lay, i;
+  for (i = 0; i < 5; i++) { // the 5th pass only rebuilds at the final scale
+    s = Math.min(s, sz.width * W / (MINW * u));
+    clipCount = 0;
+    E = makeEnv(ctx, cfg, W, H, avg, sz.width * W / s, s); lay = buildLayout(E);
+    if (i < 4 && lay.h * s > sz.hmax * H) s *= sz.hmax * H / (lay.h * s); else break;
+  }
+  s = Math.min(s, 0.96 * H / lay.h, 0.96 * W / lay.w);
+  E.s = s;
+  var p = cfg.place || {}, w = lay.w * s, h = lay.h * s, mx = 0.02 * W, my = 0.02 * H;
   var x = num(p.cx, 0.5, 0, 1) * W - w / 2, y = num(p.cy, 0.6, 0, 1) * H - h / 2;
   x = w > W - 2 * mx ? (W - w) / 2 : Math.min(Math.max(x, mx), W - mx - w);
   y = h > H - 2 * my ? (H - h) / 2 : Math.min(Math.max(y, my), H - my - h);
-  return { x: x, y: y, w: w, h: h, s: s };
+  return { E: E, lay: lay, x: x, y: y, w: w, h: h, s: s };
 }
 function canvasH(cfg, W) {
   var sz = cfg.size || {}, a = +sz.w > 0 ? +sz.w : 9, b = +sz.h > 0 ? +sz.h : 20;
@@ -908,13 +927,12 @@ function paint(canvas, cfg, W, bmp) {
   drawBackground(ctx, cfg, W, H, bmp);
   var bgc = HEX.test((cfg.bg || {}).color || '') ? cfg.bg.color : '#F4EFE4';
   var avg = (cfg.bg && cfg.bg.type === 'image' && bmp) ? sampleAvg(canvas, bgc) : bgc;
-  var E = makeEnv(ctx, cfg, W, H, avg), lay = buildLayout(E), pl = placement(cfg, lay, W, H);
-  E.s = pl.s;
+  var pl = solve(ctx, cfg, W, H, avg), E = pl.E, lay = pl.lay;
   ctx.save(); ctx.translate(pl.x, pl.y); ctx.scale(pl.s, pl.s);
   paintPanels(ctx, E, lay, canvas);
   lay.draw(ctx);
   ctx.restore();
-  return { block: { x: pl.x, y: pl.y, w: pl.w, h: pl.h }, scale: pl.s };
+  return { block: { x: pl.x, y: pl.y, w: pl.w, h: pl.h }, scale: pl.s, clipped: clipCount };
 }
 function render(canvas, cfg, opts) {
   opts = opts || {};
@@ -923,10 +941,22 @@ function render(canvas, cfg, opts) {
     .then(function () { return loadBg(cfg, opts); })
     .then(function (bmp) { return paint(canvas, cfg, W, bmp); });
 }
-render.measure = function (cfg, W, H) {
+render.measure = function (cfg, W, H, deep) {
   var bgc = HEX.test((cfg.bg || {}).color || '') ? cfg.bg.color : '#F4EFE4';
-  var E = makeEnv(scratchCtx(), cfg, W, H, bgc), pl = placement(cfg, buildLayout(E), W, H);
-  return { x: pl.x, y: pl.y, w: pl.w, h: pl.h };
+  var ctx = scratchCtx(), pl = solve(ctx, cfg, W, H, bgc);
+  // deep: also run the drawing code once so text cut while drawing is counted
+  if (deep) { ctx.save(); ctx.scale(pl.s, pl.s); try { pl.lay.draw(ctx); } catch (e) {} ctx.restore(); }
+  return { x: pl.x, y: pl.y, w: pl.w, h: pl.h, s: pl.s, clipped: clipCount };
+};
+render.sizeOf = sizeOf;
+// true centre (0..1) of the block when put in a corner, 4% from the edges
+render.corner = function (cfg, W, H, pos) {
+  var m = render.measure(cfg, W, H), e = 0.04 * Math.min(W, H), mx = Math.max(e, 0.02 * W), my = Math.max(e, 0.02 * H);
+  var cx = 0.5, cy = 0.5;
+  if (pos === 'tl' || pos === 'bl') cx = (mx + m.w / 2) / W; else if (pos === 'tr' || pos === 'br') cx = (W - mx - m.w / 2) / W;
+  if (pos === 'tl' || pos === 'tr') cy = (my + m.h / 2) / H; else if (pos === 'bl' || pos === 'br') cy = (H - my - m.h / 2) / H;
+  function r4(v) { return Math.round(Math.min(1, Math.max(0, v)) * 10000) / 10000; }
+  return { cx: r4(cx), cy: r4(cy) };
 };
 render.subjectColor = function (cfg, text) {
   var k = clean(text).toLowerCase(), mode = (cfg.look && cfg.look.subjectColors) || 'auto';

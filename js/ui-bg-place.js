@@ -209,6 +209,10 @@
         var c = cfg(), W = 1080, H = Math.round(W * c.size.h / c.size.w);
         try { var b = TKB.render.measure(c, W, H); return clamp(b.h / H, 0.05, 1); } catch (e) { return 0.4; }
       }
+      // effective size (preset or numbers) for a config, measured on a 1080-wide canvas
+      function dims(c) { return { W: 1080, H: Math.round(1080 * c.size.h / c.size.w) }; }
+      function eff(c) { var d = dims(c); return TKB.render.sizeOf(c, d.W, d.H); }
+      function manual(c) { var e = eff(c); c.place.width = r3(e.width); c.place.zoom = r3(e.zoom); c.place.preset = null; }
       function setCy(fn) { var f = frac(); upd(function (c) { c.place.cy = r3(clamp(fn(f), 0, 1)); }); }
 
       var presets = h('div', { class: 'row' });
@@ -224,9 +228,23 @@
       var sl = [
         slider('p-place-lr', 'Ngang (tâm)', 0, 1, 0.005, function (c) { return c.place.cx; }, function (c, v) { c.place.cx = v; }, 'pl-cx', pct),
         slider('p-place-lr', 'Dọc (tâm)', 0, 1, 0.005, function (c) { return c.place.cy; }, function (c, v) { c.place.cy = v; }, 'pl-cy', pct),
-        slider('p-place-lr', 'Độ rộng bảng', 0.3, 1, 0.01, function (c) { return c.place.width; }, function (c, v) { c.place.width = v; }, 'pl-w', pct),
-        slider('p-place-lr', 'Cỡ bảng (phóng to / thu nhỏ)', 0.3, 3, 0.05, function (c) { return c.place.zoom == null ? 1 : c.place.zoom; }, function (c, v) { c.place.zoom = v; }, 'pl-z', pct)
+        slider('p-place-lr', 'Độ rộng khối', 0.12, 1, 0.01, function (c) { return eff(c).width; }, function (c, v) { manual(c); c.place.width = v; }, 'pl-w', pct),
+        slider('p-place-lr', 'Cỡ chữ & ô', 0.25, 3, 0.05, function (c) { return eff(c).zoom; }, function (c, v) { manual(c); c.place.zoom = v; }, 'pl-z', pct)
       ];
+
+      var sizeBtns = [['mini', 'Mini'], ['s', 'Nhỏ'], ['m', 'Vừa'], ['l', 'Lớn']].map(function (a) {
+        var b = h('button', { type: 'button', text: a[1], 'aria-pressed': 'false' });
+        b.addEventListener('click', function () { upd(function (c) { c.place.preset = a[0]; }); });
+        return { id: a[0], b: b };
+      });
+      var corners = h('div', { class: 'row' });
+      [['↖', 'tl', 'Góc trên trái'], ['↗', 'tr', 'Góc trên phải'], ['↙', 'bl', 'Góc dưới trái'], ['↘', 'br', 'Góc dưới phải'], ['Giữa', 'c', 'Giữa màn hình']].forEach(function (a) {
+        var b = h('button', { type: 'button', class: 'btn btn-sm', 'aria-label': a[2], title: a[2], text: a[0] });
+        b.addEventListener('click', function () {
+          upd(function (c) { var d = dims(c), p = TKB.render.corner(c, d.W, d.H, a[1]); c.place.cx = p.cx; c.place.cy = p.cy; });
+        });
+        corners.appendChild(b);
+      });
 
       function nudge(dx, dy) {
         upd(function (c) { c.place.cx = r3(clamp(c.place.cx + dx, 0, 1)); c.place.cy = r3(clamp(c.place.cy + dy, 0, 1)); }, 'pl-nudge');
@@ -276,6 +294,7 @@
       function sync() {
         var c = cfg();
         sl.forEach(function (s) { s.sync(c); });
+        sizeBtns.forEach(function (x) { x.b.setAttribute('aria-pressed', String(x.id === c.place.preset)); });
         var id = TKB.devices.byRatio(c.size);
         tiles.forEach(function (t) { var on = t.d.id === id; t.btn.classList.toggle('is-on', on); t.btn.setAttribute('aria-pressed', String(on)); });
         setVal(wIn, c.size.w); setVal(hIn, c.size.h);
@@ -289,7 +308,10 @@
       root.appendChild(h('div', { class: 'stack' }, [
         h('h2', { class: 'p-title' }, ['Vị trí']),
         h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Đặt nhanh']), presets]),
-        sl[0].el, sl[1].el, sl[2].el,
+        h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Cỡ nhanh']), seg(sizeBtns.map(function (x) { return x.b; }))]),
+        sl[2].el, sl[3].el,
+        h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Góc nhanh']), corners]),
+        sl[0].el, sl[1].el,
         h('div', { class: 'row' }, [pad, h('div', { class: 'stack' }, [center, guides.el])]),
         h('div', { class: 'divider' }),
         h('h3', { class: 'label' }, ['Kích thước màn hình']),

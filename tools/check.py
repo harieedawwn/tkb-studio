@@ -13,12 +13,34 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 QUICK = '--quick' in sys.argv
 VIEWPORTS = {'phone-9:20': (412, 915), 'desk-16:9': (1600, 900)}
 SIZES = {'9:20': (9, 20), '16:9': (16, 9), '21:9': (21, 9)}
-# place variants: default, mini, big. Keys not present in cfg.place are ignored by older code.
+# place variants: the four size presets (centred) + two extreme manual sizes
 PLACES = {
-    'default': {},
-    'mini': {'width': 0.2, 'zoom': 0.4, 'cx': 0.85, 'cy': 0.2, 'preset': None},
-    'big': {'width': 1, 'zoom': 2.5, 'preset': None},
+    'mini': {'preset': 'mini', 'cx': 0.5, 'cy': 0.5},
+    's': {'preset': 's', 'cx': 0.5, 'cy': 0.5},
+    'm': {'preset': 'm', 'cx': 0.5, 'cy': 0.5},
+    'l': {'preset': 'l', 'cx': 0.5, 'cy': 0.5},
+    'max': {'preset': None, 'width': 1, 'zoom': 3, 'cx': 0.5, 'cy': 0.5},
+    'min': {'preset': None, 'width': 0.12, 'zoom': 0.25, 'cx': 0.9, 'cy': 0.9},
 }
+if QUICK:
+    PLACES = {k: PLACES[k] for k in ('mini', 'm', 'max')}
+
+
+def rules(sname, pname, r):
+    """Size rules from TASK.md phase 2. Returns a list of broken rule names."""
+    bad = []
+    w, h = r['boxPct']
+    wide = sname != '9:20'
+    if pname in ('m', 'l') and r['clipped']:
+        bad.append('clipped=%d' % r['clipped'])
+    if wide and pname == 'mini' and (w > 25.5 or h > 50.5):
+        bad.append('mini too big')
+    if wide and pname == 'm' and w > 50.5:
+        bad.append('m too wide')
+    if not wide and pname == 'm' and not (83.5 <= w <= 88.5):
+        bad.append('m width not 84-88%')
+    return bad
+
 
 JS_CASE = """async ([size, place, layout]) => {
   const ui = TKB.ui;
@@ -28,7 +50,7 @@ JS_CASE = """async ([size, place, layout]) => {
   const sc = document.getElementById('screen').getBoundingClientRect();
   const db = document.getElementById('dragbox'), b = db.getBoundingClientRect();
   const cv = document.getElementById('cv');
-  const m = TKB.render.measure(ui.get(), cv.width, cv.height);
+  const m = TKB.render.measure(ui.get(), cv.width, cv.height, true);
   const tol = 1.5;
   return {
     hidden: db.hidden,
@@ -37,8 +59,24 @@ JS_CASE = """async ([size, place, layout]) => {
     measPct: [+(m.w / cv.width * 100).toFixed(1), +(m.h / cv.height * 100).toFixed(1)],
     // dragbox must match the measured block (same placement code path)
     match: Math.abs(b.width / sc.width - m.w / cv.width) < 0.01 && Math.abs(b.height / sc.height - m.h / cv.height) < 0.01,
+    clipped: m.clipped,
     pageOverflowX: document.documentElement.scrollWidth > innerWidth + 1
   };
+}"""
+
+
+JS_DRAG = """async () => {
+  const ui = TKB.ui;
+  const settle = () => new Promise(r => setTimeout(r, 120));
+  ui.update(c => { c.size = {w: 16, h: 9}; Object.assign(c.place, {preset: 'mini', cx: 0.5, cy: 0.5}); });
+  await settle();
+  const db = document.getElementById('dragbox'), b = db.getBoundingClientRect();
+  const ev = (t, x, y) => db.dispatchEvent(new PointerEvent(t, {pointerId: 7, clientX: x, clientY: y, bubbles: true, cancelable: true, button: 0}));
+  const x0 = b.left + b.width / 2, y0 = b.top + b.height / 2, p0 = Object.assign({}, ui.get().place);
+  ev('pointerdown', x0, y0); ev('pointermove', x0 + 40, y0 + 25); ev('pointerup', x0 + 40, y0 + 25);
+  await settle();
+  const p1 = ui.get().place;
+  return {ok: p1.cx > p0.cx && p1.cy > p0.cy, before: [p0.cx, p0.cy], after: [+p1.cx.toFixed(3), +p1.cy.toFixed(3)]};
 }"""
 
 
@@ -57,7 +95,7 @@ def main():
     url = 'http://127.0.0.1:%d/index.html' % srv.server_address[1]
     bad = 0
     with sync_playwright() as p:
-        br = p.chromium.launch()
+        br = p.chromium.launch(executable_path=os.environ.get('TKB_CHROMIUM') or None)
         for vname, (vw, vh) in VIEWPORTS.items():
             pg = br.new_page(viewport={'width': vw, 'height': vh})
             errs = []
@@ -74,10 +112,16 @@ def main():
                 for pname, pl in PLACES.items():
                     for lay in layouts:
                         r = pg.evaluate(JS_CASE, [list(sz), pl, lay])
-                        ok = (not r['hidden']) and r['inside'] and r['match'] and not r['pageOverflowX']
+                        broken = rules(sname, pname, r)
+                        ok = (not r['hidden']) and r['inside'] and r['match'] and not r['pageOverflowX'] and not broken
                         if not ok:
                             bad += 1
-                        print(('OK ' if ok else 'BAD'), vname, sname, pname, lay, json.dumps(r, separators=(',', ':')))
+                        print(('OK ' if ok else 'BAD'), vname, sname, pname, lay, json.dumps(r, separators=(',', ':')), ','.join(broken))
+            # drag: pointerdown/move/up on the dragbox must move cx/cy the right way
+            d = pg.evaluate(JS_DRAG)
+            if not d['ok']:
+                bad += 1
+            print(('OK ' if d['ok'] else 'BAD'), vname, 'drag', json.dumps(d, separators=(',', ':')))
             if errs:
                 bad += 1
                 print('CONSOLE', vname, json.dumps(errs[:5], ensure_ascii=False))

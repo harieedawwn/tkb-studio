@@ -170,12 +170,19 @@
       });
       var f = h('div', { class: 'field basic-only' }, [h('div', { class: 'label', text: label }), box]);
       stack.appendChild(f);
-      refs.push(function () { var v = get(cfg()); bs.forEach(function (b, i) { b.setAttribute('aria-pressed', String(Math.abs(opts[i][0] - v) < 0.04)); }); });
+      refs.push(function () { var v = get(cfg()); bs.forEach(function (b, i) { b.setAttribute('aria-pressed', String(typeof v === 'string' || v == null ? opts[i][0] === v : Math.abs(opts[i][0] - v) < 0.04)); }); });
     }
     segRow('Vị trí bảng', [[0.3, 'Trên'], [0.5, 'Giữa'], [0.62, 'Hơi thấp'], [0.72, 'Dưới']],
       function (c) { return c.place.cy; }, function (c, v) { c.place.cx = 0.5; c.place.cy = v; });
-    segRow('Cỡ bảng', [[0.74, 'Nhỏ'], [0.86, 'Vừa'], [0.96, 'Lớn']],
-      function (c) { return c.place.width; }, function (c, v) { c.place.width = v; c.place.zoom = 1; });
+    segRow('Cỡ bảng', [['mini', 'Mini'], ['s', 'Nhỏ'], ['m', 'Vừa'], ['l', 'Lớn']],
+      function (c) { return c.place.preset; },
+      function (c, v) {
+        c.place.preset = v;
+        if (v === 'mini' && c.size.w > c.size.h) { // wide screen: tuck the small block into the top-right corner
+          var W = 1080, p = TKB.render.corner(c, W, Math.round(W * c.size.h / c.size.w), 'tr');
+          c.place.cx = p.cx; c.place.cy = p.cy;
+        }
+      });
 
     var file = h('input', { type: 'file', accept: 'image/*', hidden: true });
     var up = h('button', { type: 'button', class: 'btn', onclick: function () { file.click(); } }, [

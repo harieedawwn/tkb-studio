@@ -27,7 +27,7 @@ tăng `VERSION` trong sw.js (một lần mỗi phase), tick `[x]` dưới đây,
    "Cấu trúc thư mục" khớp file thật (dẫn sang CLAUDE.md); sửa câu "Nếu thêm vào sw.js" cho rõ nghĩa.
 4. Không đổi hành vi. `tools/check.py` phải bad=0 như trước.
 
-## Phase 2 — Kích thước & thu phóng (High) [ ]
+## Phase 2 — Kích thước & thu phóng (High) [x]
 Gốc lỗi: `render.js` `u = W/1080` → màn ngang phình to rồi bị `placement()` ép theo chiều cao;
 `place.width` ≥ 0.3; slider `sl[3]` (zoom) ở ui-bg-place.js không được gắn vào DOM; mức Nhỏ 0.74 quá rộng.
 

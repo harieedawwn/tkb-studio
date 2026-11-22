@@ -84,7 +84,9 @@
       c.bg = Object.assign({}, c.bg, { type: b.type, color: b.color });
       if (b.pattern) c.bg.pattern = b.pattern;
     } else c.look.panelOpacity = Math.max(0.88, c.look.panelOpacity);
-    c.place = Object.assign({}, c.place, clone(p.place));
+    // a style sets the position only; the user's own size (width, zoom, preset) is kept
+    var sz = { width: c.place.width, zoom: c.place.zoom, preset: c.place.preset };
+    c.place = Object.assign({}, c.place, clone(p.place), sz);
     return c;
   }
 
