@@ -146,12 +146,32 @@
     });
   }
 
-  function httpError(status) {
-    if (status === 400) return 'Gemini không nhận ảnh hoặc tên model. Hãy thử ảnh khác hoặc kiểm tra tên model trong Cài đặt.';
-    if (status === 401 || status === 403) return 'API key không đúng hoặc không có quyền. Hãy kiểm tra lại key trong Cài đặt.';
-    if (status === 429) return 'Đã hết hạn mức dùng Gemini. Hãy đợi một lúc rồi thử lại.';
-    return 'Gemini báo lỗi (' + status + '). Hãy thử lại sau.';
+  var RETRY = { 429: 1, 500: 1, 502: 1, 503: 1, 504: 1 };
+  var FALLBACK_MODEL = 'gemini-3.8-flash';
+
+  function httpError(status, msg) {
+    var base;
+    if (status === 400) base = 'Gemini không nhận yêu cầu (ảnh hoặc tên model).';
+    else if (status === 401 || status === 403) base = 'API key không đúng hoặc không có quyền.';
+    else if (status === 404) base = 'Không có model này. Hãy sửa tên model trong Cài đặt (bấm "Kiểm tra key" để xem tên đúng).';
+    else if (status === 429) base = 'Đã hết hạn mức dùng Gemini. Hãy đợi một lúc rồi thử lại.';
+    else if (status === 503 || status === 500 || status === 502 || status === 504) base = 'Máy chủ Gemini đang quá tải hoặc xử lý quá lâu (' + status + ').';
+    else base = 'Gemini báo lỗi (' + status + ').';
+    var e = new Error(msg ? base + ' Chi tiết: ' + msg : base);
+    e.status = status;
+    return e;
   }
+  // read Google's own error text (never contains the key); keep it short
+  function readError(r) {
+    return r.text().then(function (t) {
+      var m = '';
+      try { var j = JSON.parse(t); m = (j.error && (j.error.message || j.error.status)) || ''; } catch (e) { m = t || ''; }
+      m = String(m).replace(/\s+/g, ' ').trim();
+      if (m.length > 220) m = m.slice(0, 217) + '…';
+      throw httpError(r.status, m);
+    }, function () { throw httpError(r.status, ''); });
+  }
+  function wait(ms) { return new Promise(function (res) { setTimeout(res, ms); }); }
 
   function parseText(res) {
     var cand = res && res.candidates && res.candidates[0];
@@ -159,39 +179,91 @@
     var txt = parts.filter(function (p) { return p && !p.thought && typeof p.text === 'string'; })
       .map(function (p) { return p.text; }).join('');
     txt = txt.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    if (!txt) throw new Error('Gemini không trả kết quả. Hãy thử lại hoặc dùng ảnh rõ hơn.');
+    if (!txt) {
+      var why = (cand && cand.finishReason) || (res && res.promptFeedback && res.promptFeedback.blockReason) || '';
+      throw new Error('Gemini không trả kết quả' + (why ? ' (' + why + ')' : '') + '. Hãy thử lại hoặc dùng ảnh rõ hơn.');
+    }
     try { return JSON.parse(txt); } catch (e) { throw new Error('Không hiểu kết quả của Gemini. Hãy thử lại.'); }
   }
 
-  function request(blob) {
-    var cfg = getSettings();
-    if (!cfg.key) return Promise.reject(new Error('Chưa có API key. Hãy nhập key trong phần Cài đặt.'));
-    return prepare(blob).then(function (img) {
-      var ctl = typeof AbortController === 'function' ? new AbortController() : null;
-      var timer = setTimeout(function () { if (ctl) ctl.abort(); }, TIMEOUT);
-      var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(cfg.model) + ':generateContent';
-      var body = {
-        contents: [{ role: 'user', parts: [{ text: PROMPT }, { inlineData: { mimeType: img.mimeType, data: img.data } }] }],
-        generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, thinkingConfig: { thinkingLevel: cfg.level } }
-      };
-      return fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cfg.key },
-        body: JSON.stringify(body),
-        signal: ctl ? ctl.signal : undefined
-      }).then(function (r) {
-        if (!r.ok) throw new Error(httpError(r.status));
-        return r.json();
-      }, function () {
-        throw new Error('Không kết nối được tới Gemini (mạng yếu hoặc quá 90 giây). Hãy thử lại.');
-      }).then(function (j) { clearTimeout(timer); return parseText(j); },
-        function (e) { clearTimeout(timer); throw e; });
+  // one HTTP call. lite = no response schema, no thinking config (lighter for the server)
+  function callOnce(key, model, level, img, lite) {
+    var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+    var timer = setTimeout(function () { if (ctl) ctl.abort(); }, TIMEOUT);
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
+    var gc = { responseMimeType: 'application/json' };
+    if (!lite) { gc.responseSchema = SCHEMA; gc.thinkingConfig = { thinkingLevel: level }; }
+    var text = lite ? PROMPT + ' Chỉ trả JSON dạng {"sessions":[{"label":"","periods":0,"times":[],"days":[{"label":"","cells":[]}]}]}.' : PROMPT;
+    var body = { contents: [{ role: 'user', parts: [{ text: text }, { inlineData: { mimeType: img.mimeType, data: img.data } }] }], generationConfig: gc };
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify(body),
+      signal: ctl ? ctl.signal : undefined
+    }).then(function (r) {
+      clearTimeout(timer);
+      if (!r.ok) {
+        var ra = parseFloat(r.headers.get('Retry-After'));
+        return readError(r).catch(function (e) { if (ra > 0) e.retryAfter = ra * 1000; throw e; });
+      }
+      return r.json().then(parseText);
+    }, function () {
+      clearTimeout(timer);
+      var e = new Error('Không kết nối được tới Gemini (mạng yếu hoặc quá ' + Math.round(TIMEOUT / 1000) + ' giây).');
+      e.status = 0;
+      throw e;
     });
+  }
+
+  // retries on overload, then a lighter request, then the fallback model
+  function request(blob, onStatus) {
+    var cfg = getSettings(), say = typeof onStatus === 'function' ? onStatus : function () {};
+    if (!cfg.key) return Promise.reject(new Error('Chưa có API key. Hãy nhập key trong phần Cài đặt.'));
+    var plan = [
+      { model: cfg.model, lite: false, msg: 'Đang đọc ảnh…' },
+      { model: cfg.model, lite: false, msg: 'Gemini đang bận, thử lại lần 2…', delay: 2500 },
+      { model: cfg.model, lite: true, msg: 'Thử lại với yêu cầu nhẹ hơn…', delay: 5000 }
+    ];
+    if (cfg.model !== FALLBACK_MODEL) plan.push({ model: FALLBACK_MODEL, lite: true, msg: 'Thử model dự phòng ' + FALLBACK_MODEL + '…', delay: 2000 });
+    return prepare(blob).then(function (img) {
+      var i = 0, last = null;
+      function next() {
+        if (i >= plan.length) throw last;
+        var st = plan[i++], d = st.delay || 0;
+        if (last && last.retryAfter) d = Math.min(20000, Math.max(d, last.retryAfter));
+        return wait(d).then(function () {
+          say(st.msg);
+          return callOnce(cfg.key, st.model, cfg.level, img, st.lite);
+        }).catch(function (e) {
+          last = e;
+          // retry only on overload / timeout / network; 400/401/403/404 are final
+          if (e && (e.status === 0 || RETRY[e.status])) return next();
+          throw e;
+        });
+      }
+      return next();
+    });
+  }
+
+  // quick diagnosis: is the key valid and does the model name exist?
+  function check() {
+    var cfg = getSettings();
+    if (!cfg.key) return Promise.reject(new Error('Chưa có API key.'));
+    return fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': cfg.key } })
+      .then(function (r) {
+        if (!r.ok) return readError(r);
+        return r.json().then(function (j) {
+          var names = (j.models || []).filter(function (m) {
+            return (m.supportedGenerationMethods || []).indexOf('generateContent') >= 0;
+          }).map(function (m) { return String(m.name || '').replace(/^models\//, ''); });
+          return { ok: names.indexOf(cfg.model) >= 0, model: cfg.model, names: names };
+        });
+      }, function () { throw new Error('Không kết nối được tới Gemini.'); });
   }
 
   TKB.ai = {
     PROMPT: PROMPT, SCHEMA: SCHEMA, DEFAULT_MODEL: DEFAULT_MODEL,
     getSettings: getSettings, saveSettings: saveSettings,
-    prepare: prepare, request: request, toData: toData
+    prepare: prepare, request: request, check: check, toData: toData
   };
 })();

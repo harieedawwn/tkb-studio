@@ -302,13 +302,14 @@
       var lvMed = h('button', { type: 'button', 'aria-pressed': 'false' }, ['Vừa']);
       var aiSave = h('button', { type: 'button', class: 'btn btn-sm' }, ['Lưu']);
       var aiDel = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, ['Xoá key']);
+      var aiTest = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, ['Kiểm tra key']);
       var aiSet = h('details', { class: 'p-data-ai-set' }, [
         h('summary', {}, ['Cài đặt']),
         h('div', { class: 'p-data-ai-body' }, [
           h('div', { class: 'field' }, [h('span', { class: 'label' }, ['API key']), aiKey]),
           h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Tên model']), aiModel]),
           h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Mức suy luận']), h('div', { class: 'seg', role: 'group' }, [lvLow, lvMed])]),
-          h('div', { class: 'row' }, [aiSave, aiDel]),
+          h('div', { class: 'row' }, [aiSave, aiTest, aiDel]),
           h('p', { class: 'hint' }, ['Key chỉ lưu trên trình duyệt này; ảnh được gửi thẳng tới Google.'])
         ])
       ]);
@@ -322,11 +323,18 @@
         lvMed.setAttribute('aria-pressed', String(aiLevel === 'medium'));
       }
       function aiMsg(t, err) { aiStat.textContent = t || ''; aiStat.classList.toggle('is-err', !!err); }
-      lvLow.addEventListener('click', function () { aiLevel = 'low'; aiLv(); });
-      lvMed.addEventListener('click', function () { aiLevel = 'medium'; aiLv(); });
-      aiSave.addEventListener('click', function () {
-        ai.saveSettings({ key: aiKey.value, model: aiModel.value || ai.DEFAULT_MODEL, level: aiLevel });
-        TKB.ui.toast('Đã lưu cài đặt AI', 'ok');
+      // settings apply at once (no need to press Lưu before reading an image)
+      function aiPersist() { ai.saveSettings({ key: aiKey.value, model: aiModel.value.trim() || ai.DEFAULT_MODEL, level: aiLevel }); }
+      aiKey.addEventListener('change', aiPersist); aiModel.addEventListener('change', aiPersist);
+      lvLow.addEventListener('click', function () { aiLevel = 'low'; aiLv(); aiPersist(); });
+      lvMed.addEventListener('click', function () { aiLevel = 'medium'; aiLv(); aiPersist(); });
+      aiSave.addEventListener('click', function () { aiPersist(); TKB.ui.toast('Đã lưu cài đặt AI', 'ok'); });
+      aiTest.addEventListener('click', function () {
+        aiPersist(); aiMsg('Đang kiểm tra key…');
+        ai.check().then(function (r) {
+          if (r.ok) aiMsg('Key dùng được, có model ' + r.model + '.');
+          else aiMsg('Key dùng được nhưng không thấy model "' + r.model + '". Model có sẵn: ' + r.names.slice(0, 12).join(', '), true);
+        }).catch(function (e) { aiMsg(e && e.message || 'Kiểm tra thất bại.', true); });
       });
       aiDel.addEventListener('click', function () {
         ai.saveSettings({ key: '' }); aiKey.value = '';
@@ -350,10 +358,11 @@
       function runAi(blob) {
         if (aiBusy) return;
         if (!blob || !/^image\//.test(blob.type || '')) { aiMsg('Đó không phải ảnh.', true); return; }
+        aiPersist();
         var o = ai.getSettings();
         if (!o.key) { aiSet.open = true; aiMsg('Chưa có API key. Hãy nhập key trong Cài đặt.', true); TKB.ui.toast('Cần nhập Gemini API key trước', 'info'); return; }
         aiBusy = true; aiPick.disabled = aiPaste.disabled = true; aiMsg('Đang đọc ảnh…');
-        ai.request(blob).then(function (json) {
+        ai.request(blob, function (t) { aiMsg(t); }).then(function (json) {
           var ss = ai.toData(json);
           if (!ss.length) throw new Error('Không tìm thấy thời khoá biểu trong ảnh. Hãy thử ảnh rõ hơn.');
           applyAi(ss);
