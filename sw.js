@@ -1,5 +1,5 @@
 /* TKB Studio service worker. Bump VERSION on every release. */
-var VERSION = 'tkb-v10';
+var VERSION = 'tkb-v11';
 var FONTS = 'tkb-fonts-v1';
 var FILES = ['./', 'index.html', 'css/app.css', 'manifest.webmanifest', 'icon.svg',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/maskable-512.png', 'icons/apple-touch-icon.png',
@@ -28,7 +28,8 @@ self.addEventListener('fetch', function (e) {
   }
   if (u.origin !== location.origin) return;
   // network first so a new deploy shows up at once; cache keeps it working offline
-  e.respondWith(fetch(r).then(function (res) {
+  // no-cache: revalidate with the server (ETag) so the browser's HTTP cache never serves an old app file
+  e.respondWith(fetch(r.url, { cache: 'no-cache', credentials: 'same-origin' }).then(function (res) {
     if (res && res.ok) { var cp = res.clone(); caches.open(VERSION).then(function (c) { c.put(r, cp); }); }
     return res;
   }).catch(function () {
