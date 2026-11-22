@@ -215,7 +215,7 @@
     var n = $('info'); if (!n || !cfg) return;
     var s = cfg.size || {}, label = '';
     try { var id = has('devices.byRatio') && TKB.devices.byRatio(s); if (id) { var d = TKB.devices.list.filter(function (x) { return x.id === id; })[0]; label = d ? d.label : ''; } } catch (e) {}
-    n.textContent = (label || 'Tuỳ chỉnh') + ' · ' + s.w + ':' + s.h + ' · Kéo khối bảng để đổi vị trí';
+    n.textContent = (label || 'Tuỳ chỉnh') + ' · ' + s.w + ':' + s.h + ' · Kéo khối bảng để đổi vị trí · Lăn chuột để phóng to, nháy đúp để về cũ';
   }
 
   function doRender() {
@@ -224,7 +224,7 @@
     fit(); updateInfo(); buildGuides();
     if (!has('render') || typeof TKB.render !== 'function') { warnOnce('render', 'Chưa tải được bộ vẽ hình. Hãy tải lại trang.'); return; }
     if (screenW < 8) return;
-    var width = clamp(Math.round(screenW * Math.min(window.devicePixelRatio || 1, 2)), 120, MAX_PREVIEW);
+    var width = clamp(Math.round(screenW * Math.min(window.devicePixelRatio || 1, 2) * vz.z), 120, vz.z > 1 ? 4096 : MAX_PREVIEW);
     var my = ++token, off = document.createElement('canvas');
     var snapshot;
     try { snapshot = clone(cfg); } catch (e) { return; }
@@ -258,6 +258,42 @@
   function showSnap(sx, sy) { $('snapv').classList.toggle('is-on', !!sx); $('snaph').classList.toggle('is-on', !!sy); }
   function placeOf() { var p = (cfg && cfg.place) || {}; return { cx: p.cx == null ? 0.5 : p.cx, cy: p.cy == null ? 0.6 : p.cy }; }
 
+  // ---------- preview zoom: wheel zooms the whole phone frame around the cursor, drag empty stage to pan ----------
+  var vz = { z: 1, x: 0, y: 0 }, vzTimer = 0;
+  function vzApply() {
+    frame.style.transformOrigin = '0 0';
+    frame.style.transform = vz.z === 1 ? '' : 'translate(' + vz.x + 'px,' + vz.y + 'px) scale(' + vz.z + ')';
+    stage.classList.toggle('is-zoomed', vz.z > 1);
+    clearTimeout(vzTimer); vzTimer = setTimeout(scheduleRender, 180); // sharper canvas after zooming
+  }
+  function vzReset() { vz.z = 1; vz.x = 0; vz.y = 0; vzApply(); }
+  ui.resetPreviewZoom = vzReset;
+  function initZoom() {
+    stage.addEventListener('wheel', function (e) {
+      e.preventDefault();
+      var r = frame.getBoundingClientRect(), bx = r.left - vz.x, by = r.top - vz.y;
+      var lx = (e.clientX - bx - vz.x) / vz.z, ly = (e.clientY - by - vz.y) / vz.z;
+      var dy = e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      var nz = clamp(vz.z * Math.exp(-dy * 0.0015), 1, 8);
+      if (nz < 1.02) { vzReset(); return; }
+      vz.x = e.clientX - bx - lx * nz; vz.y = e.clientY - by - ly * nz; vz.z = nz;
+      vzApply();
+    }, { passive: false });
+    var pan = null;
+    stage.addEventListener('pointerdown', function (e) {
+      if (vz.z === 1 || e.target === dragbox || (e.target.closest && e.target.closest('button'))) return;
+      pan = { id: e.pointerId, x: e.clientX - vz.x, y: e.clientY - vz.y };
+      try { stage.setPointerCapture(e.pointerId); } catch (er) {}
+    });
+    stage.addEventListener('pointermove', function (e) {
+      if (!pan || e.pointerId !== pan.id) return;
+      vz.x = e.clientX - pan.x; vz.y = e.clientY - pan.y;
+      frame.style.transform = 'translate(' + vz.x + 'px,' + vz.y + 'px) scale(' + vz.z + ')';
+    });
+    function endPan() { pan = null; }
+    stage.addEventListener('pointerup', endPan); stage.addEventListener('pointercancel', endPan);
+    stage.addEventListener('dblclick', function () { vzReset(); });
+  }
   function initDrag() {
     var drag = null;
     dragbox.addEventListener('pointerdown', function (e) {
@@ -469,7 +505,7 @@
 
   // ---------- startup ----------
   function start() {
-    cv = $('cv'); screen = $('screen'); frame = $('frame'); stage = $('stage'); dragbox = $('dragbox');
+    cv = $('cv'); screen = $('screen'); frame = $('frame'); stage = $('stage'); dragbox = $('dragbox'); initZoom();
     $('undo').addEventListener('click', ui.undo);
     $('redo').addEventListener('click', ui.redo);
     $('dl').addEventListener('click', function () { ui.openPanel('save'); if (window.innerWidth < 960) { var r = $('rail'); if (r && r.scrollIntoView) r.scrollIntoView({ block: 'nearest' }); } });
