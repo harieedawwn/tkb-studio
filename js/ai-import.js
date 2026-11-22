@@ -14,8 +14,8 @@
     '(3) days chỉ gồm ngày có trên ảnh, label là một trong: Thứ 2, Thứ 3, Thứ 4, Thứ 5, Thứ 6, Thứ 7, CN; cells đúng periods phần tử theo thứ tự tiết, ô trống là "". Bảng xoay (ngày theo hàng) vẫn trả theo ngày. ' +
     '(4) times là giờ bắt đầu từng tiết dạng H:MM nếu ảnh có, không có thì []. ' +
     '(5) Chỉ ghi tên môn, bỏ tên giáo viên, phòng, lớp; ô gộp nhiều tiết thì lặp tên môn ở mỗi tiết. ' +
-    '(6) Chuẩn hoá: Chào cờ/Sinh hoạt dưới cờ/SHDC→Ch.cờ; NDGDĐP/Giáo dục địa phương→GDĐP; HĐHN-GVCN/HĐHN_GVCN/Hoạt động trải nghiệm→HĐTN; Tiếng Anh→Anh; Sinh hoạt/Sinh hoạt lớp→SHL; ' +
-    'môn khác viết hoa chữ đầu (Toán, Văn, Lý, Hoá, Sinh, Sử, Địa, Tin, CN, GDCD, GDQP, Thể dục). ' +
+    '(6) Chuẩn hoá: Chào cờ/Sinh hoạt dưới cờ/SHDC→Ch.cờ; NDGDĐP/Giáo dục địa phương→GDĐP; HĐHN-GVCN/HĐHN_GVCN/Hoạt động trải nghiệm→HĐTN; Thể dục/GDTC/Giáo dục thể chất→Th.dục; Tiếng Anh→Anh; Sinh hoạt/Sinh hoạt lớp→SHL; ' +
+    'môn khác viết hoa chữ đầu (Toán, Văn, Lý, Hoá, Sinh, Sử, Địa, Tin, CN, GDCD, GDQP). ' +
     '(7) Không đoán: chữ không đọc được để "".';
 
   var SCHEMA = {

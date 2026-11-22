@@ -14,7 +14,7 @@
   /* ---------- Subjects ---------- */
   TKB.subjects = [
     'Toán', 'Văn', 'Anh', 'Lý', 'Hoá', 'Sinh', 'Sử', 'Địa', 'GDCD', 'GDKT&PL', 'GDQP', 'Tin', 'CN',
-    'HĐTN', 'SHL', 'Ch.cờ', 'GDĐP', 'Thể dục', 'Âm nhạc', 'Mĩ thuật', 'KHTN', 'KHXH', 'LS&ĐL',
+    'HĐTN', 'SHL', 'Ch.cờ', 'GDĐP', 'Th.dục', 'Âm nhạc', 'Mĩ thuật', 'KHTN', 'KHXH', 'LS&ĐL',
     'Pháp', 'Nga', 'Nhật', 'Hàn', 'Trung', 'Chuyên đề', 'Tự chọn', 'Ôn tập'
   ];
 
@@ -37,7 +37,7 @@
     'SHL': ['Sinh hoạt', 'Sinh hoạt lớp'],
     'Ch.cờ': ['Chào cờ', 'Sinh hoạt dưới cờ', 'SHDC', 'Chào cờ đầu tuần'],
     'GDĐP': ['NDGDĐP', 'ND GDĐP', 'Giáo dục địa phương', 'Nội dung giáo dục địa phương', 'Địa phương'],
-    'Thể dục': ['GDTC', 'Giáo dục thể chất', 'Thể chất', 'TD'],
+    'Th.dục': ['Thể dục', 'Th dục', 'GDTC', 'Giáo dục thể chất', 'Thể chất', 'TD'],
     'Âm nhạc': ['Nhạc'],
     'Mĩ thuật': ['Mỹ thuật', 'Mĩ Thuật'],
     'KHTN': ['Khoa học tự nhiên'],
@@ -181,7 +181,7 @@
               day('Thứ 2', ['HĐTN', 'Toán', 'Toán', 'Văn', 'Anh']),
               day('Thứ 3', ['Văn', 'Lý', 'Hoá', 'Toán', 'GDQP']),
               day('Thứ 4', ['Anh', 'Toán', 'Sinh', 'Sử', 'Tin']),
-              day('Thứ 5', ['Hoá', 'Lý', 'Văn', 'Địa', 'Thể dục']),
+              day('Thứ 5', ['Hoá', 'Lý', 'Văn', 'Địa', 'Th.dục']),
               day('Thứ 6', ['Toán', 'Anh', 'Sinh', 'GDCD', 'CN']),
               day('Thứ 7', ['Văn', 'Sử', 'Địa', 'Anh', 'SHL'])
             ]
@@ -191,7 +191,7 @@
             times: ['13:00', '13:50', '14:50', '15:40', '16:30'],
             days: [
               day('Thứ 2', ['Tin', 'Anh', '', '', '']),
-              day('Thứ 3', ['Thể dục', 'Sinh', 'Toán', '', '']),
+              day('Thứ 3', ['Th.dục', 'Sinh', 'Toán', '', '']),
               day('Thứ 4', ['Văn', 'Hoá', '', '', '']),
               day('Thứ 5', ['Lý', 'Âm nhạc', 'Mĩ thuật', '', ''])
             ]
