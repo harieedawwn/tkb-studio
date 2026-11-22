@@ -13,10 +13,71 @@
 
   /* ---------- Subjects ---------- */
   TKB.subjects = [
-    'TOÁN', 'VĂN', 'ANH', 'LÝ', 'HOÁ', 'SINH', 'SỬ', 'ĐỊA', 'GDCD', 'GDKT&PL', 'GDQP', 'TIN', 'CN',
-    'HĐTN', 'SHL', 'SHDC', 'THỂ DỤC', 'ÂM NHẠC', 'MĨ THUẬT', 'KHTN', 'KHXH', 'LS&ĐL', 'NGỮ VĂN',
-    'TIẾNG ANH', 'PHÁP', 'NGA', 'NHẬT', 'HÀN', 'TRUNG', 'ĐỊA PHƯƠNG', 'CHUYÊN ĐỀ', 'TỰ CHỌN', 'ÔN TẬP'
+    'Toán', 'Văn', 'Anh', 'Lý', 'Hoá', 'Sinh', 'Sử', 'Địa', 'GDCD', 'GDKT&PL', 'GDQP', 'Tin', 'CN',
+    'HĐTN', 'SHL', 'Ch.cờ', 'GDĐP', 'Thể dục', 'Âm nhạc', 'Mĩ thuật', 'KHTN', 'KHXH', 'LS&ĐL',
+    'Pháp', 'Nga', 'Nhật', 'Hàn', 'Trung', 'Chuyên đề', 'Tự chọn', 'Ôn tập'
   ];
+
+  var SUBJECT_ALIASES = {
+    'Toán': ['Toán học'],
+    'Văn': ['Ngữ văn', 'Văn học'],
+    'Anh': ['Tiếng Anh', 'Anh văn', 'Ngoại ngữ', 'Ngoại ngữ 1'],
+    'Lý': ['Vật lý', 'Vật lí', 'Lí', 'Vật Lý'],
+    'Hoá': ['Hóa', 'Hóa học', 'Hoá học'],
+    'Sinh': ['Sinh học'],
+    'Sử': ['Lịch sử', 'Lịch Sử'],
+    'Địa': ['Địa lý', 'Địa lí'],
+    'GDCD': ['Giáo dục công dân', 'GD công dân'],
+    'GDKT&PL': ['GDKTPL', 'Giáo dục kinh tế và pháp luật', 'GDKT-PL'],
+    'GDQP': ['GDQP-AN', 'GDQPAN', 'Giáo dục quốc phòng', 'Giáo dục quốc phòng và an ninh', 'Quốc phòng'],
+    'Tin': ['Tin học'],
+    'CN': ['Công nghệ'],
+    'HĐTN': ['HĐHN-GVCN', 'HĐHN_GVCN', 'HĐHN', 'HĐTN-HN', 'HĐTNHN', 'Hoạt động trải nghiệm', 'Hoạt động trải nghiệm hướng nghiệp',
+      'Hoạt động trải nghiệm (hướng nghiệp)', 'Hoạt động trải nghiệm, hướng nghiệp', 'Hoạt động hướng nghiệp'],
+    'SHL': ['Sinh hoạt', 'Sinh hoạt lớp'],
+    'Ch.cờ': ['Chào cờ', 'Sinh hoạt dưới cờ', 'SHDC', 'Chào cờ đầu tuần'],
+    'GDĐP': ['NDGDĐP', 'ND GDĐP', 'Giáo dục địa phương', 'Nội dung giáo dục địa phương', 'Địa phương'],
+    'Thể dục': ['GDTC', 'Giáo dục thể chất', 'Thể chất', 'TD'],
+    'Âm nhạc': ['Nhạc'],
+    'Mĩ thuật': ['Mỹ thuật', 'Mĩ Thuật'],
+    'KHTN': ['Khoa học tự nhiên'],
+    'KHXH': ['Khoa học xã hội'],
+    'LS&ĐL': ['LSĐL', 'LS-ĐL', 'Lịch sử và Địa lí', 'Lịch sử và Địa lý', 'Lịch sử - Địa lí'],
+    'Pháp': ['Tiếng Pháp'],
+    'Nga': ['Tiếng Nga'],
+    'Nhật': ['Tiếng Nhật'],
+    'Hàn': ['Tiếng Hàn'],
+    'Trung': ['Tiếng Trung'],
+    'Chuyên đề': ['Chuyên đề học tập', 'CĐ'],
+    'Tự chọn': ['Tự chọn'],
+    'Ôn tập': ['Ôn']
+  };
+
+  function plainKey(s) {
+    var t = String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'd').toLowerCase();
+    return t.replace(/[._\-\s]+/g, '');
+  }
+  var SUBJECT_MAP = {};
+  Object.keys(SUBJECT_ALIASES).forEach(function (name) {
+    SUBJECT_MAP[plainKey(name)] = name;
+    SUBJECT_ALIASES[name].forEach(function (a) { SUBJECT_MAP[plainKey(a)] = name; });
+  });
+  TKB.subjects.forEach(function (name) { SUBJECT_MAP[plainKey(name)] = name; });
+
+  TKB.canonSubject = function (s) {
+    var t = String(s == null ? '' : s);
+    try { t = t.normalize('NFC'); } catch (e) {}
+    t = t.replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+    var k = plainKey(t);
+    if (SUBJECT_MAP.hasOwnProperty(k)) return SUBJECT_MAP[k];
+    var m = /^([^\-(]+?)\s*[-(]/.exec(t);
+    if (m) {
+      k = plainKey(m[1]);
+      if (k && SUBJECT_MAP.hasOwnProperty(k)) return SUBJECT_MAP[k];
+    }
+    return t;
+  };
 
   /* ---------- Small helpers ---------- */
   var DAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN', 'Thứ 8'];
@@ -117,22 +178,22 @@
             id: 's1', label: 'Buổi sáng', periods: 5,
             times: ['7:00', '7:50', '8:50', '9:40', '10:30'],
             days: [
-              day('Thứ 2', ['HĐTN', 'TOÁN', 'TOÁN', 'VĂN', 'ANH']),
-              day('Thứ 3', ['VĂN', 'LÝ', 'HOÁ', 'TOÁN', 'GDQP']),
-              day('Thứ 4', ['ANH', 'TOÁN', 'SINH', 'SỬ', 'TIN']),
-              day('Thứ 5', ['HOÁ', 'LÝ', 'VĂN', 'ĐỊA', 'THỂ DỤC']),
-              day('Thứ 6', ['TOÁN', 'ANH', 'SINH', 'GDCD', 'CN']),
-              day('Thứ 7', ['VĂN', 'SỬ', 'ĐỊA', 'ANH', 'SHL'])
+              day('Thứ 2', ['HĐTN', 'Toán', 'Toán', 'Văn', 'Anh']),
+              day('Thứ 3', ['Văn', 'Lý', 'Hoá', 'Toán', 'GDQP']),
+              day('Thứ 4', ['Anh', 'Toán', 'Sinh', 'Sử', 'Tin']),
+              day('Thứ 5', ['Hoá', 'Lý', 'Văn', 'Địa', 'Thể dục']),
+              day('Thứ 6', ['Toán', 'Anh', 'Sinh', 'GDCD', 'CN']),
+              day('Thứ 7', ['Văn', 'Sử', 'Địa', 'Anh', 'SHL'])
             ]
           },
           {
             id: 's2', label: 'Buổi chiều', periods: 5,
             times: ['13:00', '13:50', '14:50', '15:40', '16:30'],
             days: [
-              day('Thứ 2', ['TIN', 'ANH', '', '', '']),
-              day('Thứ 3', ['THỂ DỤC', 'SINH', 'TOÁN', '', '']),
-              day('Thứ 4', ['VĂN', 'HOÁ', '', '', '']),
-              day('Thứ 5', ['LÝ', 'ÂM NHẠC', 'MĨ THUẬT', '', ''])
+              day('Thứ 2', ['Tin', 'Anh', '', '', '']),
+              day('Thứ 3', ['Thể dục', 'Sinh', 'Toán', '', '']),
+              day('Thứ 4', ['Văn', 'Hoá', '', '', '']),
+              day('Thứ 5', ['Lý', 'Âm nhạc', 'Mĩ thuật', '', ''])
             ]
           }
         ]

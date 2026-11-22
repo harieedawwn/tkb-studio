@@ -62,7 +62,7 @@ Việc cần làm:
    - `width=1, zoom=3` và `width=0.12, zoom=0.25`: không lỗi, khối vẫn trong màn hình.
    - Kéo thả: dispatch pointerdown/move/up trên dragbox, cx/cy đổi đúng chiều, không lỗi console.
 
-## Phase 3 — Tên môn + đọc ảnh bằng Gemini (Medium) [ ]
+## Phase 3 — Tên môn + đọc ảnh bằng Gemini (Medium) [x]
 A. Chuẩn hoá tên môn (`storage.js`):
 1. `TKB.subjects` đổi sang dạng hiển thị: Toán, Văn, Anh, Lý, Hoá, Sinh, Sử, Địa, GDCD, GDKT&PL, GDQP, Tin, CN, HĐTN,
    SHL, Ch.cờ, GDĐP, Thể dục, Âm nhạc, Mĩ thuật, KHTN, KHXH, LS&ĐL, Pháp, Nga, Nhật, Hàn, Trung, Chuyên đề, Tự chọn, Ôn tập.

@@ -23,9 +23,15 @@
     '.p-data-pcol{position:sticky;left:0;z-index:2;background:var(--paper);text-align:left!important;padding-right:6px;min-width:60px}' +
     '.p-data-pcol .p-data-time{display:block;width:60px;min-height:34px;margin-top:4px;font-size:13px;padding:4px 6px}' +
     '.p-data-cell{position:relative}' +
-    '.p-data-in{width:84px;min-height:44px;padding:6px 6px 6px 20px;font-size:16px;font-weight:600;text-transform:uppercase}' +
+    '.p-data-in{width:84px;min-height:44px;padding:6px 6px 6px 20px;font-size:16px;font-weight:600}' +
     '.p-data-dot{position:absolute;left:7px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;pointer-events:none;background:transparent}' +
-    '.p-data-subj{max-height:150px;overflow-y:auto}';
+    '.p-data-subj{max-height:150px;overflow-y:auto}' +
+    '.p-data-ai summary{cursor:pointer;font-weight:700;min-height:32px}' +
+    '.p-data-ai-body{display:flex;flex-direction:column;gap:10px;margin-top:10px}' +
+    '.p-data-ai-set{border:2px dashed var(--ink-soft);border-radius:var(--radius-sm);padding:8px 10px}' +
+    '.p-data-ai-set summary{font-weight:600;font-size:13px}' +
+    '.p-data-ai-stat{min-height:20px;font-size:13px}' +
+    '.p-data-ai-stat.is-err{color:#b3261e;font-weight:600}';
 
   function sig(c) {
     return c.data.sessions.map(function (s) {
@@ -102,7 +108,7 @@
             var pp = p + ri; if (pp >= s.periods) return;
             row.forEach(function (v, ci) {
               var d = s.days[di + ci];
-              if (d) d.cells[pp] = v.replace(/^"|"$/g, '').trim().toUpperCase();
+              if (d) d.cells[pp] = TKB.canonSubject(v.replace(/^"|"$/g, ''));
             });
           });
         });
@@ -185,13 +191,18 @@
             s.days.forEach(function (d, di) {
               var dot = h('span', { class: 'p-data-dot' });
               var inp = h('input', {
-                class: 'input p-data-in', type: 'text', autocomplete: 'off', autocapitalize: 'characters',
+                class: 'input p-data-in', type: 'text', autocomplete: 'off', autocapitalize: 'sentences',
                 spellcheck: 'false', enterkeyhint: 'next', 'aria-label': d.label + ', tiết ' + (p + 1)
               });
               inp.addEventListener('input', function () {
-                var v = inp.value, up = v.toUpperCase();
-                if (up !== v) { var pos = inp.selectionStart; inp.value = up; try { inp.setSelectionRange(pos, pos); } catch (e) {} }
-                upd(function (c2) { var dd = c2.data.sessions[si].days[di]; if (dd) dd.cells[p] = up; }, 'd-c' + si + '-' + di + '-' + p);
+                var v = inp.value;
+                upd(function (c2) { var dd = c2.data.sessions[si].days[di]; if (dd) dd.cells[p] = v; }, 'd-c' + si + '-' + di + '-' + p);
+              });
+              inp.addEventListener('change', function () {
+                var cv = TKB.canonSubject(inp.value);
+                if (cv === inp.value) return;
+                inp.value = cv;
+                upd(function (c2) { var dd = c2.data.sessions[si].days[di]; if (dd) dd.cells[p] = cv; });
               });
               inp.addEventListener('focus', function () {
                 st.last = { si: si, di: di, p: p };
@@ -279,6 +290,109 @@
         if (!focusCell(t.si, t.di, t.p + 1) && t.di + 1 < s.days.length) focusCell(t.si, t.di + 1, 0);
       }
 
+      /* ---- AI import ---- */
+      var ai = TKB.ai;
+      var aiStat = h('p', { class: 'p-data-ai-stat', role: 'status', 'aria-live': 'polite' });
+      var aiFile = h('input', { type: 'file', accept: 'image/*', hidden: 'hidden' });
+      var aiPick = h('button', { type: 'button', class: 'btn btn-sm' }, ['Chọn ảnh']);
+      var aiPaste = h('button', { type: 'button', class: 'btn btn-sm' }, ['Dán ảnh']);
+      var aiKey = h('input', { class: 'input', type: 'password', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Gemini API key' });
+      var aiModel = h('input', { class: 'input', type: 'text', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Tên model' });
+      var lvLow = h('button', { type: 'button', 'aria-pressed': 'false' }, ['Thấp']);
+      var lvMed = h('button', { type: 'button', 'aria-pressed': 'false' }, ['Vừa']);
+      var aiSave = h('button', { type: 'button', class: 'btn btn-sm' }, ['Lưu']);
+      var aiDel = h('button', { type: 'button', class: 'btn btn-ghost btn-sm' }, ['Xoá key']);
+      var aiSet = h('details', { class: 'p-data-ai-set' }, [
+        h('summary', {}, ['Cài đặt']),
+        h('div', { class: 'p-data-ai-body' }, [
+          h('div', { class: 'field' }, [h('span', { class: 'label' }, ['API key']), aiKey]),
+          h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Tên model']), aiModel]),
+          h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Mức suy luận']), h('div', { class: 'seg', role: 'group' }, [lvLow, lvMed])]),
+          h('div', { class: 'row' }, [aiSave, aiDel]),
+          h('p', { class: 'hint' }, ['Key chỉ lưu trên trình duyệt này; ảnh được gửi thẳng tới Google.'])
+        ])
+      ]);
+      var aiLevel = 'medium', aiBusy = false;
+      function aiLoad() {
+        var o = ai.getSettings();
+        aiKey.value = o.key; aiModel.value = o.model; aiLevel = o.level; aiLv();
+      }
+      function aiLv() {
+        lvLow.setAttribute('aria-pressed', String(aiLevel === 'low'));
+        lvMed.setAttribute('aria-pressed', String(aiLevel === 'medium'));
+      }
+      function aiMsg(t, err) { aiStat.textContent = t || ''; aiStat.classList.toggle('is-err', !!err); }
+      lvLow.addEventListener('click', function () { aiLevel = 'low'; aiLv(); });
+      lvMed.addEventListener('click', function () { aiLevel = 'medium'; aiLv(); });
+      aiSave.addEventListener('click', function () {
+        ai.saveSettings({ key: aiKey.value, model: aiModel.value || ai.DEFAULT_MODEL, level: aiLevel });
+        TKB.ui.toast('Đã lưu cài đặt AI', 'ok');
+      });
+      aiDel.addEventListener('click', function () {
+        ai.saveSettings({ key: '' }); aiKey.value = '';
+        TKB.ui.toast('Đã xoá key khỏi trình duyệt này', 'ok');
+      });
+
+      function applyAi(sessions) {
+        var go = function () {
+          upd(function (c) { c.data.sessions = sessions; }, 'ai-import');
+          var nd = 0; sessions.forEach(function (x) { nd += x.days.length; });
+          TKB.ui.toast('Đã điền ' + sessions.length + ' buổi, ' + nd + ' ngày — bấm Hoàn tác nếu sai', 'ok');
+          aiMsg('');
+        };
+        var cur = cfg().data.sessions;
+        if (cur.some(hasContent)) {
+          TKB.ui.confirm('Lịch hiện tại sẽ được thay bằng kết quả đọc từ ảnh (có thể Hoàn tác). Tiếp tục?').then(function (ok) {
+            if (ok) go(); else aiMsg('');
+          });
+        } else go();
+      }
+      function runAi(blob) {
+        if (aiBusy) return;
+        if (!blob || !/^image\//.test(blob.type || '')) { aiMsg('Đó không phải ảnh.', true); return; }
+        var o = ai.getSettings();
+        if (!o.key) { aiSet.open = true; aiMsg('Chưa có API key. Hãy nhập key trong Cài đặt.', true); TKB.ui.toast('Cần nhập Gemini API key trước', 'info'); return; }
+        aiBusy = true; aiPick.disabled = aiPaste.disabled = true; aiMsg('Đang đọc ảnh…');
+        ai.request(blob).then(function (json) {
+          var ss = ai.toData(json);
+          if (!ss.length) throw new Error('Không tìm thấy thời khoá biểu trong ảnh. Hãy thử ảnh rõ hơn.');
+          applyAi(ss);
+        }).catch(function (e) {
+          aiMsg(e && e.message || 'Không đọc được ảnh.', true);
+          TKB.ui.toast(e && e.message || 'Không đọc được ảnh.', 'error');
+        }).then(function () { aiBusy = false; aiPick.disabled = aiPaste.disabled = false; });
+      }
+      aiPick.addEventListener('click', function () { aiFile.click(); });
+      aiFile.addEventListener('change', function () {
+        var f = aiFile.files && aiFile.files[0]; aiFile.value = '';
+        if (f) runAi(f);
+      });
+      aiPaste.addEventListener('click', function () {
+        if (!(navigator.clipboard && navigator.clipboard.read)) { aiMsg('Trình duyệt không cho dán ảnh bằng nút. Hãy bấm vào khối này rồi nhấn Ctrl+V.', true); return; }
+        navigator.clipboard.read().then(function (items) {
+          var blobP = null;
+          items.some(function (it) {
+            return it.types.some(function (t) { if (/^image\//.test(t)) { blobP = it.getType(t); return true; } });
+          });
+          if (!blobP) { aiMsg('Bộ nhớ tạm không có ảnh.', true); return; }
+          return blobP.then(runAi);
+        }).catch(function () { aiMsg('Không đọc được bộ nhớ tạm. Hãy bấm vào khối này rồi nhấn Ctrl+V.', true); });
+      });
+      var aiBox = h('details', { class: 'card adv-only p-data-ai' }, [
+        h('summary', {}, ['Đọc ảnh TKB bằng AI (cần Gemini API key riêng)']),
+        h('div', { class: 'p-data-ai-body' }, [
+          h('p', { class: 'hint' }, ['Chọn hoặc dán ảnh chụp thời khoá biểu; AI sẽ điền vào bảng. Nhớ kiểm tra lại kết quả.']),
+          h('div', { class: 'row' }, [aiPick, aiPaste, aiFile]),
+          aiStat, aiSet
+        ])
+      ]);
+      aiBox.addEventListener('paste', function (e) {
+        if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName) && e.target.type !== 'file' && !(e.clipboardData && e.clipboardData.files && e.clipboardData.files.length)) return;
+        var files = e.clipboardData && e.clipboardData.files, i;
+        for (i = 0; files && i < files.length; i++) if (/^image\//.test(files[i].type)) { e.preventDefault(); runAi(files[i]); return; }
+      });
+      aiLoad();
+
       var sample = h('button', { type: 'button', class: 'btn btn-ghost' }, ['Nạp lịch mẫu']);
       sample.addEventListener('click', function () {
         TKB.ui.confirm('Thay toàn bộ lịch hiện tại bằng lịch mẫu?').then(function (ok) {
@@ -295,6 +409,7 @@
         h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Phụ đề']), subIn]),
         h('div', { class: 'field' }, [h('span', { class: 'label' }, ['Số buổi']), h('div', { class: 'seg', role: 'group' }, [b1, b2])]),
         box,
+        aiBox,
         h('div', { class: 'field' }, [
           h('span', { class: 'label' }, ['Môn hay dùng']),
           h('p', { class: 'hint' }, ['Chạm vào một ô rồi chọn môn. Có thể dán từ Excel hoặc Google Sheets vào ô đầu tiên.']),
