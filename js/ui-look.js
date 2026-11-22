@@ -2,24 +2,11 @@
 (function () {
   'use strict';
   var TKB = window.TKB = window.TKB || {};
+  var D = TKB.dom, h = D.h, cfg = D.cfg, clone = D.clone;
 
-  function h(tag, props, kids) {
-    var e = document.createElement(tag);
-    for (var n in (props || {})) {
-      var v = props[n];
-      if (n === 'class') e.className = v;
-      else if (n === 'text') e.textContent = v;
-      else if (n.slice(0, 2) === 'on') e.addEventListener(n.slice(2), v);
-      else if (v !== false && v != null) e.setAttribute(n, v === true ? '' : v);
-    }
-    (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-    return e;
-  }
   function addStyle(s) { var e = document.createElement('style'); e.textContent = s; document.head.appendChild(e); }
-  function cfg() { return TKB.ui.get(); }
   function eff(c) { return Object.assign({}, TKB.themes.get(c.look.theme), c.look.colors || {}); }
   function norm(s) { return String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase(); }
-  function clone(o) { return JSON.parse(JSON.stringify(o)); }
   function hex(v) { return /^#[0-9a-f]{6}$/i.test(v || '') ? v : '#000000'; }
 
   function slider(label, min, max, step, get, set, key, fmt) {

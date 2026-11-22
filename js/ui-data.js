@@ -2,29 +2,9 @@
 (function () {
   'use strict';
   var TKB = window.TKB = window.TKB || {};
+  var D = TKB.dom, h = D.h, cfg = D.cfg, upd = D.upd, setVal = D.setVal;
   var DAYS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
 
-  function h(tag, p, kids) {
-    var e = document.createElement(tag), k, v;
-    for (k in (p || {})) {
-      v = p[k];
-      if (v == null) continue;
-      if (k === 'class') e.className = v;
-      else if (k === 'text') e.textContent = v;
-      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
-      else e.setAttribute(k, v);
-    }
-    (kids || []).forEach(function (c) {
-      if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-    });
-    return e;
-  }
-  function cfg() { return TKB.ui.get(); }
-  function upd(fn, key) { TKB.ui.update(fn, key ? { key: key } : undefined); }
-  function setVal(el, v) {
-    v = v == null ? '' : String(v);
-    if (el.value !== v && document.activeElement !== el) el.value = v;
-  }
   function blank(n) { var a = []; while (a.length < n) a.push(''); return a; }
   function fit(a, n) { var r = (a || []).slice(0, n); while (r.length < n) r.push(''); return r; }
   function fmt(m) { var hh = Math.floor(m / 60), mm = m % 60; return hh + ':' + (mm < 10 ? '0' : '') + mm; }

@@ -21,7 +21,7 @@ Web tĩnh giúp học sinh nhập thời khoá biểu và xuất thành hình n�
 4. Đợi 1–2 phút, trang sẽ có địa chỉ `https://<tên-bạn>.github.io/tkb-studio/`.
 
 ## Đưa lên Netlify (kéo thả)
-1. Giải nén `tkb-studio.zip` ra một thư mục.
+1. Chuẩn bị thư mục dự án (có `index.html` ở ngoài cùng).
 2. Vào app.netlify.com/drop (đăng nhập nếu cần).
 3. Kéo cả thư mục vào khung. Netlify cấp ngay một địa chỉ; có thể đổi tên ở **Site configuration**.
 
@@ -33,7 +33,16 @@ Lần đầu mở trang cần có mạng để tải phông chữ từ Google Fo
 2. Mở `js/fonts.js`, thêm một dòng vào `TKB.fonts.list`, ví dụ:
    `{ family: 'Tên Phông', group: 'Không chân', weights: [400, 700] }`
    Chỉ ghi những độ đậm thật sự có. `group` là một trong: Nghệ thuật, Thư pháp, Không chân, Có chân, Bo tròn, Hẹp & đậm, Viết tay, Đơn cách. Kiểm tra phông có tiếng Việt: mở link CSS của phông, phải thấy dòng `/* vietnamese */`.
-3. Nếu thêm vào `sw.js`: không cần, phông được lưu tự động khi dùng.
+3. Không cần sửa `sw.js` khi thêm phông: phông được lưu tự động khi dùng.
+
+## Cấu trúc thư mục
+- `index.html`, `manifest.webmanifest`, `sw.js`, `icon.svg`, `icons/` — khung trang, PWA, cache offline.
+- `css/app.css` — giao diện chung.
+- `js/` — mã nguồn (devices, patterns, themes, fonts, presets, storage, render, export, ui-*, pwa).
+- `tools/check.py` — kiểm tra bố cục tự động (không thuộc ứng dụng).
+- `.nojekyll` — để GitHub Pages phục vụ nguyên trạng.
+
+Chi tiết từng file và quy ước code: xem `CLAUDE.md`.
 
 ## Giới hạn đã biết
 - Cần mạng ở lần đầu để có phông Google; phông riêng tải lên được lưu trên máy này.

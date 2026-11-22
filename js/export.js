@@ -230,11 +230,7 @@
 
   function filename(cfg, short, format) {
     var f = normFormat(format);
-    var slug = String((cfg && cfg.name) || '')
-      .normalize('NFD').replace(/[̀-ͯ]/g, '')
-      .replace(/đ/g, 'd').replace(/Đ/g, 'd')
-      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
-      .replace(/^tkb(-|$)/, '');
+    var slug = TKB.dom.slug(cfg && cfg.name).replace(/^tkb(-|$)/, '');
     var qid = String(short) + 'p';
     var list = TKB.QUALITY || [];
     for (var i = 0; i < list.length; i++) if (list[i].short === Number(short)) { qid = list[i].id; break; }

@@ -5,6 +5,37 @@
   var $ = function (id) { return document.getElementById(id); };
   var HISTORY_MAX = 50, COALESCE_MS = 600, SAVE_MS = 800, MAX_PREVIEW = 1600;
 
+  // ---------- shared DOM/data helpers ----------
+  TKB.dom = {
+    h: function (tag, props, kids) {
+      var e = document.createElement(tag), k, v;
+      for (k in (props || {})) {
+        v = props[k];
+        if (v == null || v === false) continue;
+        if (k === 'class') e.className = v;
+        else if (k === 'text') e.textContent = v;
+        else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+        else e.setAttribute(k, v === true ? '' : v);
+      }
+      (kids || []).forEach(function (c) {
+        if (c != null && c !== false) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+      });
+      return e;
+    },
+    clamp: function (v, a, b) { return Math.max(a, Math.min(b, v)); },
+    clone: function (o) { return JSON.parse(JSON.stringify(o)); },
+    setVal: function (el, v) {
+      v = v == null ? '' : String(v);
+      if (el.value !== v && document.activeElement !== el) el.value = v;
+    },
+    slug: function (s) {
+      return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
+        .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tkb';
+    },
+    cfg: function () { return TKB.ui.get(); },
+    upd: function (fn, key) { TKB.ui.update(fn, key ? { key: key } : undefined); }
+  };
+
   var ui = TKB.ui = TKB.ui || {};
   ui.slotId = null;
 

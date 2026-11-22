@@ -2,23 +2,8 @@
 (function () {
   'use strict';
   var TKB = window.TKB = window.TKB || {};
+  var D = TKB.dom, h = D.h, slug = D.slug;
 
-  function h(tag, props, kids) {
-    var e = document.createElement(tag);
-    for (var n in (props || {})) {
-      var v = props[n];
-      if (n === 'class') e.className = v;
-      else if (n === 'text') e.textContent = v;
-      else if (n.slice(0, 2) === 'on') e.addEventListener(n.slice(2), v);
-      else if (v !== false && v != null) e.setAttribute(n, v === true ? '' : v);
-    }
-    (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-    return e;
-  }
-  function slug(s) {
-    return String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D')
-      .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'tkb';
-  }
   function toast(t, k) { TKB.ui.toast(t, k); }
   function errMsg(e) { return (e && e.message) || 'Có lỗi xảy ra, thử lại nhé.'; }
 

@@ -2,29 +2,8 @@
 (function () {
   'use strict';
   var TKB = window.TKB = window.TKB || {};
+  var D = TKB.dom, h = D.h, cfg = D.cfg, upd = D.upd, setVal = D.setVal, clamp = D.clamp;
 
-  function h(tag, p, kids) {
-    var e = document.createElement(tag), k, v;
-    for (k in (p || {})) {
-      v = p[k];
-      if (v == null) continue;
-      if (k === 'class') e.className = v;
-      else if (k === 'text') e.textContent = v;
-      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
-      else e.setAttribute(k, v);
-    }
-    (kids || []).forEach(function (c) {
-      if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
-    });
-    return e;
-  }
-  function cfg() { return TKB.ui.get(); }
-  function upd(fn, key) { TKB.ui.update(fn, key ? { key: key } : undefined); }
-  function setVal(el, v) {
-    v = v == null ? '' : String(v);
-    if (el.value !== v && document.activeElement !== el) el.value = v;
-  }
-  function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
   function r3(v) { return Math.round(v * 1000) / 1000; }
   function normHex(s) {
     s = String(s).trim().replace(/^#/, '');

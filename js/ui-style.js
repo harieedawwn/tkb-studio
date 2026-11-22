@@ -2,21 +2,8 @@
 (function () {
   'use strict';
   var TKB = window.TKB = window.TKB || {};
+  var D = TKB.dom, h = D.h, cfg = D.cfg, clone = D.clone;
 
-  function h(tag, props, kids) {
-    var e = document.createElement(tag);
-    for (var n in (props || {})) {
-      var v = props[n];
-      if (n === 'class') e.className = v;
-      else if (n === 'text') e.textContent = v;
-      else if (n.slice(0, 2) === 'on') e.addEventListener(n.slice(2), v);
-      else if (v !== false && v != null) e.setAttribute(n, v === true ? '' : v);
-    }
-    (kids || []).forEach(function (c) { if (c) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-    return e;
-  }
-  function cfg() { return TKB.ui.get(); }
-  function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
   var CSS =
     '.st-presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:10px}' +

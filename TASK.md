@@ -14,7 +14,7 @@ tăng `VERSION` trong sw.js (một lần mỗi phase), tick `[x]` dưới đây,
 
 ---
 
-## Phase 1 — Dọn trùng lặp (Low) [ ]
+## Phase 1 — Dọn trùng lặp (Low) [x]
 1. Đầu `js/ui-core.js` (trước `var ui = ...`), thêm `TKB.dom = { h, clamp, clone, setVal, slug, cfg, upd }`:
    - `h(tag, props, kids)`: bỏ qua prop `null/undefined/false`; `true` → attribute rỗng; `class`, `text`, `onXxx` như hiện tại; kids bỏ `null/undefined/false`, chuỗi → text node.
    - `setVal(el, v)` = bản ở ui-data.js; `clamp(v,a,b)`; `clone(o)` JSON; `slug(s)` = bản ở ui-library.js;
