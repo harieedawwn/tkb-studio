@@ -313,7 +313,7 @@
           h('p', { class: 'hint' }, ['Key chỉ lưu trên trình duyệt này; ảnh được gửi thẳng tới Google.'])
         ])
       ]);
-      var aiLevel = 'medium', aiBusy = false;
+      var aiLevel = 'low', aiBusy = false;
       function aiLoad() {
         var o = ai.getSettings();
         aiKey.value = o.key; aiModel.value = o.model; aiLevel = o.level; aiLv();
@@ -363,6 +363,7 @@
         if (!o.key) { aiSet.open = true; aiMsg('Chưa có API key. Hãy nhập key trong Cài đặt.', true); TKB.ui.toast('Cần nhập Gemini API key trước', 'info'); return; }
         aiBusy = true; aiPick.disabled = aiPaste.disabled = true; aiMsg('Đang đọc ảnh…');
         ai.request(blob, function (t) { aiMsg(t); }).then(function (json) {
+          if (json && json.__model) TKB.ui.toast('Model đã chọn đang bận, đã dùng ' + json.__model, 'info');
           var ss = ai.toData(json);
           if (!ss.length) throw new Error('Không tìm thấy thời khoá biểu trong ảnh. Hãy thử ảnh rõ hơn.');
           applyAi(ss);

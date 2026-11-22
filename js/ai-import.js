@@ -5,7 +5,7 @@
 
   var LS_KEY = 'tkb.ai.key', LS_MODEL = 'tkb.ai.model', LS_LEVEL = 'tkb.ai.level';
   var DEFAULT_MODEL = 'gemini-4-hydrogen';
-  var MAX_SIDE = 2048, TIMEOUT = 90000;
+  var MAX_SIDE = 2048, TIMEOUT = 45000;
   var DAYS = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'CN'];
 
   var PROMPT = 'Đọc ảnh thời khoá biểu học sinh Việt Nam, trả JSON đúng schema. ' +
@@ -53,13 +53,13 @@
     return {
       key: lsGet(LS_KEY) || '',
       model: lsGet(LS_MODEL) || DEFAULT_MODEL,
-      level: lv === 'low' ? 'low' : 'medium'
+      level: lv === 'medium' ? 'medium' : 'low'
     };
   }
   function saveSettings(o) {
     if (o.key !== undefined) lsSet(LS_KEY, String(o.key).trim());
     if (o.model !== undefined) lsSet(LS_MODEL, String(o.model).trim() === DEFAULT_MODEL ? '' : String(o.model).trim());
-    if (o.level !== undefined) lsSet(LS_LEVEL, o.level === 'low' ? 'low' : 'medium');
+    if (o.level !== undefined) lsSet(LS_LEVEL, o.level === 'medium' ? 'medium' : 'low');
   }
 
   /* ---------- day label / time normalisation ---------- */
@@ -147,7 +147,6 @@
   }
 
   var RETRY = { 429: 1, 500: 1, 502: 1, 503: 1, 504: 1 };
-  var FALLBACK_MODEL = 'gemini-3.8-flash';
 
   function httpError(status, msg) {
     var base;
@@ -186,14 +185,13 @@
     try { return JSON.parse(txt); } catch (e) { throw new Error('Không hiểu kết quả của Gemini. Hãy thử lại.'); }
   }
 
-  // one HTTP call. lite = no response schema, no thinking config (lighter for the server)
-  function callOnce(key, model, level, img, lite) {
+  // one HTTP call
+  function callOnce(key, model, level, img) {
     var ctl = typeof AbortController === 'function' ? new AbortController() : null;
     var timer = setTimeout(function () { if (ctl) ctl.abort(); }, TIMEOUT);
     var url = 'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(model) + ':generateContent';
-    var gc = { responseMimeType: 'application/json' };
-    if (!lite) { gc.responseSchema = SCHEMA; gc.thinkingConfig = { thinkingLevel: level }; }
-    var text = lite ? PROMPT + ' Chỉ trả JSON dạng {"sessions":[{"label":"","periods":0,"times":[],"days":[{"label":"","cells":[]}]}]}.' : PROMPT;
+    var gc = { responseMimeType: 'application/json', responseSchema: SCHEMA, thinkingConfig: { thinkingLevel: level } };
+    var text = PROMPT;
     var body = { contents: [{ role: 'user', parts: [{ text: text }, { inlineData: { mimeType: img.mimeType, data: img.data } }] }], generationConfig: gc };
     return fetch(url, {
       method: 'POST',
@@ -215,29 +213,34 @@
     });
   }
 
-  // retries on overload, then a lighter request, then the fallback model
+  // Models that answered fast and read tables correctly (tested 2026-11-22). Tried in order after the user's model.
+  var FALLBACKS = ['gemini-3.6-flash', 'gemini-3.5-flash', 'gemini-3.5-flash-lite'];
+  // user's model (one retry on overload), then each fallback model; 400/401/403 stop at once
   function request(blob, onStatus) {
     var cfg = getSettings(), say = typeof onStatus === 'function' ? onStatus : function () {};
     if (!cfg.key) return Promise.reject(new Error('Chưa có API key. Hãy nhập key trong phần Cài đặt.'));
-    var plan = [
-      { model: cfg.model, lite: false, msg: 'Đang đọc ảnh…' },
-      { model: cfg.model, lite: false, msg: 'Gemini đang bận, thử lại lần 2…', delay: 2500 },
-      { model: cfg.model, lite: true, msg: 'Thử lại với yêu cầu nhẹ hơn…', delay: 5000 }
-    ];
-    if (cfg.model !== FALLBACK_MODEL) plan.push({ model: FALLBACK_MODEL, lite: true, msg: 'Thử model dự phòng ' + FALLBACK_MODEL + '…', delay: 2000 });
+    var plan = [{ model: cfg.model, msg: 'Đang đọc ảnh bằng ' + cfg.model + '…' },
+      { model: cfg.model, msg: cfg.model + ' đang bận, thử lại…', delay: 2000 }];
+    FALLBACKS.forEach(function (m) {
+      if (m !== cfg.model) plan.push({ model: m, msg: 'Model đang bận, chuyển sang ' + m + '…', delay: 500 });
+    });
     return prepare(blob).then(function (img) {
-      var i = 0, last = null;
+      var i = 0, last = null, first = null;
       function next() {
-        if (i >= plan.length) throw last;
+        if (i >= plan.length) throw first || last;
         var st = plan[i++], d = st.delay || 0;
-        if (last && last.retryAfter) d = Math.min(20000, Math.max(d, last.retryAfter));
+        // a missing model is not worth a retry on the same name
+        if (last && last.status === 404 && st.model === cfg.model) return next();
+        if (last && last.retryAfter && st.model === cfg.model) d = Math.min(10000, Math.max(d, last.retryAfter));
         return wait(d).then(function () {
           say(st.msg);
-          return callOnce(cfg.key, st.model, cfg.level, img, st.lite);
+          return callOnce(cfg.key, st.model, cfg.level, img);
+        }).then(function (json) {
+          if (st.model !== cfg.model) json.__model = st.model;
+          return json;
         }).catch(function (e) {
-          last = e;
-          // retry only on overload / timeout / network; 400/401/403/404 are final
-          if (e && (e.status === 0 || RETRY[e.status])) return next();
+          last = e; if (!first) first = e;
+          if (e && (e.status === 0 || e.status === 404 || RETRY[e.status])) return next();
           throw e;
         });
       }
