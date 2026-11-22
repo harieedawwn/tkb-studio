@@ -391,6 +391,24 @@ LAY.plain = function (E) {
   return { w: w, h: Math.max(y, 1), panels: [], draw: runJobs(jobs) };
 };
 
+/* day columns for card-like layouts. look.dayFit: 'stretch' (days of a session share the width) |
+   'align' (one slot per weekday across sessions, so a day stays in the same column). Days with no subject are hidden. */
+function dayCols(E, si, w, gap) {
+  var ss = E.data.sessions || [];
+  function used(s) { var P = E.P(s); return (s.days || []).filter(function (d) { return (d.cells || []).slice(0, P).some(function (x) { return clean(x); }); }); }
+  var mine = used(ss[si] || {}), all = ss[si] && ss[si].days || [];
+  if (!mine.length) mine = all.slice();
+  var slots = mine.map(function (d) { return clean(d.label).toLowerCase(); });
+  if (E.look.dayFit === 'align' && ss.length > 1) {
+    var seen = {}; slots = [];
+    ss.forEach(function (s) { used(s).forEach(function (d) { var k = clean(d.label).toLowerCase(); if (!seen[k]) { seen[k] = 1; slots.push(k); } }); });
+    mine.forEach(function (d) { var k = clean(d.label).toLowerCase(); if (slots.indexOf(k) < 0) slots.push(k); });
+  }
+  var n = Math.max(1, slots.length), cw = Math.min((w - (n - 1) * gap) / n, w * 0.5), x0 = (w - (n * cw + (n - 1) * gap)) / 2;
+  return mine.map(function (d) {
+    return { day: d, d: all.indexOf(d), x: x0 + slots.indexOf(clean(d.label).toLowerCase()) * (cw + gap), cw: cw };
+  });
+}
 LAY.cards = function (E) {
   var u = E.u, w = E.layoutW, jobs = [], panels = [], y = 0, ss = E.data.sessions || [], multi = ss.length > 1;
   var tb = titleBlock(E, w, 'center', false);
@@ -398,13 +416,12 @@ LAY.cards = function (E) {
   ss.forEach(function (s, si) {
     if (si > 0) y += E.sg;
     if (multi) { var sl = sessLabel(E, s.label, si, w, false); add(jobs, sl, 0, y); y += sl.h + 4 * u; }
-    var P = E.P(s), ti = E.times(s), days = s.days || [], nd = Math.max(1, days.length), gc = E.gm;
-    var cw = Math.min((w - (nd - 1) * gc) / nd, w * 0.5), x0 = (w - (nd * cw + (nd - 1) * gc)) / 2;
+    var P = E.P(s), ti = E.times(s), gc = E.gm, cols = dayCols(E, si, w, gc), cw = cols[0].cw;
     var ip = 10 * u, hh = E.dfs * 1.3 + 14 * u, ph = E.fs * 1.3 + 16 * u + (ti ? E.fs * 0.65 + 2 * u : 0), pg = Math.max(E.g, 3 * u);
     var chh = ip + hh + pg + P * ph + (P - 1) * pg + ip, showNum = E.look.showPeriodNumbers && (cw - 2 * ip) >= 96 * u, numW = 0;
     if (showNum) { E.ctx.font = E.fontT(E.fs * 0.62); numW = E.ctx.measureText(String(P)).width + 16 * u; }
-    days.forEach(function (day, d) {
-      var cx = x0 + d * (cw + gc), cy = y;
+    cols.forEach(function (col) {
+      var day = col.day, cx = col.x, cy = y;
       panels.push(E.panel(cx, cy, cw, chh));
       jobs.push(function (ctx) {
         head(E, ctx, cx + ip, cy + ip, cw - 2 * ip, hh, day.label, E.sc(si), E.c.panel, false);
@@ -467,14 +484,13 @@ LAY.notes = function (E) {
   ss.forEach(function (s, si) {
     if (si > 0) y += E.sg;
     if (multi) { var sl = sessLabel(E, s.label, si, w, false); add(jobs, sl, 0, y); y += sl.h + 4 * u; }
-    var P = E.P(s), ti = E.times(s), days = s.days || [], nd = Math.max(1, days.length), gn = Math.max(E.gm, 12 * u);
-    var cw = Math.min((w - (nd - 1) * gn) / nd, w * 0.5), x0 = (w - (nd * cw + (nd - 1) * gn)) / 2;
+    var P = E.P(s), ti = E.times(s), gn = Math.max(E.gm, 12 * u), cols = dayCols(E, si, w, gn), cw = cols[0].cw;
     var np = 12 * u, nh = E.dfs * 1.3 + 14 * u, rh = E.fs * 1.3 + 12 * u + (ti ? E.fs * 0.65 : 0);
     var top0 = np + 8 * u + nh + 4 * u, nhh = top0 + P * rh + np, showNum = !!E.look.showPeriodNumbers, numW = 0;
     if (showNum) { ctx0.font = E.fontT(E.fs * 0.7); numW = ctx0.measureText(String(P)).width + 10 * u; }
     var mode = E.look.subjectColors || 'auto';
-    days.forEach(function (day, d) {
-      var nx = x0 + d * (cw + gn), ny = y, r = rng(hash(title + '|' + si + '|' + d + '|' + clean(day.label)));
+    cols.forEach(function (col) {
+      var day = col.day, d = col.d, nx = col.x, ny = y, r = rng(hash(title + '|' + si + '|' + d + '|' + clean(day.label)));
       var rot = (r() * 2 - 1) * 1.5 * Math.PI / 180, tilt = (r() * 2 - 1) * 3 * Math.PI / 180, toff = (r() * 2 - 1) * cw * 0.12;
       panels.push(E.panel(nx, ny, cw, nhh, { rot: rot, r: E.r * 0.5 }));
       jobs.push(function (ctx) {

@@ -323,7 +323,8 @@
       showTitle: bool(rl.showTitle, dl.showTitle),
       showTimes: bool(rl.showTimes, dl.showTimes),
       showPeriodNumbers: bool(rl.showPeriodNumbers, dl.showPeriodNumbers),
-      upper: bool(rl.upper, dl.upper)
+      upper: bool(rl.upper, dl.upper),
+      dayFit: rl.dayFit === 'align' ? 'align' : 'stretch'
     };
 
     // bg
