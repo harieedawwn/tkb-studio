@@ -96,6 +96,9 @@
         byLabel[lb] = Array.isArray(d.cells) ? d.cells.map(function (x) { return TKB.canonSubject(x); }) : [];
       });
       var labels = DAYS.filter(function (l) { return byLabel[l]; });
+      // drop days with no subject at all (models sometimes pad the afternoon with empty days)
+      var filled = labels.filter(function (l) { return byLabel[l].some(function (x) { return x; }); });
+      if (filled.length) labels = filled;
       if (!labels.length) return;
       var last = 0;
       labels.forEach(function (l) {
